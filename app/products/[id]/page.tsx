@@ -47,8 +47,9 @@ async function getOrdersForProduct(productId: string) {
     .orderBy(desc(orders.orderedAt));
 }
 
-export default async function ProductDetailPage({ params }: { params: { id: string } }) {
-  const product = await db.query.products.findFirst({ where: eq(products.id, params.id) });
+export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const product = await db.query.products.findFirst({ where: eq(products.id, id) });
   if (!product) notFound();
 
   const productSeries = product.seriesId
