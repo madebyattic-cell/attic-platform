@@ -1,8 +1,9 @@
 import { db } from "@/db/client";
-import { orders, orderItems, customers, channels, syncRuns } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { orders, orderItems, customers, channels, syncRuns, products, listings } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 const GUMROAD_SALES_URL = "https://api.gumroad.com/v2/sales";
+const GUMROAD_PRODUCTS_URL = "https://api.gumroad.com/v2/products";
 
 type GumroadSale = {
   id: string;
@@ -21,6 +22,16 @@ type GumroadSale = {
   chargebacked?: boolean;
 };
 
+type GumroadProduct = {
+  id: string;
+  name: string;
+  permalink?: string;
+  short_url?: string;
+  price: number; // cents
+  currency?: string;
+  published?: boolean;
+};
+
 async function fetchGumroadSales(pageKey?: string): Promise<{ sales: GumroadSale[]; nextPageKey?: string }> {
   const url = new URL(GUMROAD_SALES_URL);
   if (pageKey) url.searchParams.set("page_key", pageKey);
@@ -36,6 +47,20 @@ async function fetchGumroadSales(pageKey?: string): Promise<{ sales: GumroadSale
   }
 
   return { sales: json.sales ?? [], nextPageKey: json.next_page_key };
+}
+
+export async function fetchGumroadProducts(): Promise<GumroadProduct[]> {
+  const res = await fetch(GUMROAD_PRODUCTS_URL, {
+    headers: { Authorization: `Bearer ${process.env.GUMROAD_ACCESS_TOKEN}` },
+  });
+
+  const json = await res.json();
+
+  if (!res.ok || json.success === false) {
+    throw new Error(`Gumroad products fetch failed: ${res.status} ${json.message ?? ""}`);
+  }
+
+  return json.products ?? [];
 }
 
 async function upsertCustomer(
@@ -119,11 +144,6 @@ export async function syncGumroadSales() {
       console.log(
         `Gumroad sync page ${pageCount}: got ${page.sales.length} sales, nextPageKey=${page.nextPageKey ?? "none"}`
       );
-      if (page.sales.length > 0) {
-        console.log(
-          `Sample sale: id=${page.sales[0].id} refunded=${page.sales[0].refunded} chargebacked=${page.sales[0].chargebacked} email=${page.sales[0].email ?? "none"}`
-        );
-      }
 
       for (const s of page.sales) {
         if (s.refunded || s.chargebacked) {
@@ -193,6 +213,152 @@ export async function syncGumroadSales() {
       .where(eq(syncRuns.id, run.id));
 
     return { ok: true, written };
+  } catch (err) {
+    await db
+      .update(syncRuns)
+      .set({
+        status: "failed",
+        finishedAt: new Date(),
+        errorMessage: err instanceof Error ? err.message : String(err),
+      })
+      .where(eq(syncRuns.id, run.id));
+    throw err;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Matching Gumroad's product catalog to Made by Attic products        */
+/* ------------------------------------------------------------------ */
+
+// Words too generic to help identify a specific product.
+const STOPWORDS = new Set([
+  "mockup", "mockups", "psd", "file", "files", "editable", "smart", "object",
+  "the", "a", "an", "on", "of", "for", "with", "and", "in", "to", "your",
+]);
+
+function normalizeTokens(input: string): string[] {
+  return input
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // strip accents: é -> e
+    .replace(/[^a-z0-9\s]/g, " ")    // punctuation -> space
+    .split(/\s+/)
+    .filter((w) => w.length > 0 && !STOPWORDS.has(w));
+}
+
+/**
+ * Score how well a Gumroad product name matches a given Made by Attic
+ * product, based on token overlap with the product's internal name.
+ * Returns a 0..1 score (fraction of the product's own tokens found in
+ * the Gumroad title).
+ */
+function matchScore(productTokens: string[], gumroadTokens: string[]): number {
+  if (productTokens.length === 0) return 0;
+  const gumroadSet = new Set(gumroadTokens);
+  const hits = productTokens.filter((t) => gumroadSet.has(t)).length;
+  return hits / productTokens.length;
+}
+
+const MATCH_THRESHOLD = 0.6;
+
+export type GumroadMatchResult = {
+  gumroadProduct: GumroadProduct;
+  matchedProductId: string | null;
+  matchedProductName: string | null;
+  score: number;
+};
+
+/**
+ * Fetches Gumroad's product catalog and attempts to auto-match each one
+ * against Made by Attic products by internal-name token overlap.
+ * Confident matches (score >= MATCH_THRESHOLD) are written into `listings`.
+ * Everything else is returned unmatched for manual reconciliation.
+ */
+export async function syncGumroadListings() {
+  const [run] = await db
+    .insert(syncRuns)
+    .values({ connector: "gumroad_listings", status: "running" })
+    .returning({ id: syncRuns.id });
+
+  try {
+    const channel = await db.query.channels.findFirst({ where: eq(channels.key, "gumroad") });
+    if (!channel) throw new Error("No 'gumroad' row in channels table — seed it first.");
+
+    const allProducts = await db
+      .select({ id: products.id, internalName: products.internalName })
+      .from(products);
+
+    const productTokenMap = allProducts.map((p) => ({
+      id: p.id,
+      name: p.internalName,
+      tokens: normalizeTokens(p.internalName),
+    }));
+
+    // Already-linked externalIds for this channel, so we don't re-process them.
+    const existingListings = await db
+      .select({ externalId: listings.externalId })
+      .from(listings)
+      .where(eq(listings.channelId, channel.id));
+    const alreadyLinked = new Set(existingListings.map((l) => l.externalId).filter(Boolean));
+
+    const gumroadProducts = await fetchGumroadProducts();
+
+    let matched = 0;
+    let skippedExisting = 0;
+    const unmatched: GumroadMatchResult[] = [];
+
+    for (const gp of gumroadProducts) {
+      const externalId = gp.permalink ?? gp.id;
+      if (alreadyLinked.has(externalId)) {
+        skippedExisting++;
+        continue;
+      }
+
+      const gumroadTokens = normalizeTokens(gp.name);
+
+      let best: { id: string; name: string; score: number } | null = null;
+      for (const p of productTokenMap) {
+        const score = matchScore(p.tokens, gumroadTokens);
+        if (!best || score > best.score) {
+          best = { id: p.id, name: p.name, score };
+        }
+      }
+
+      if (best && best.score >= MATCH_THRESHOLD) {
+        await db
+          .insert(listings)
+          .values({
+            productId: best.id,
+            channelId: channel.id,
+            externalId,
+            url: gp.short_url,
+            displayTitle: gp.name,
+            licenseTier: "commercial",
+            price: String((gp.price ?? 0) / 100),
+            status: gp.published ? "live" : "draft",
+          })
+          .onConflictDoNothing();
+        matched++;
+      } else {
+        unmatched.push({
+          gumroadProduct: gp,
+          matchedProductId: best?.id ?? null,
+          matchedProductName: best?.name ?? null,
+          score: best?.score ?? 0,
+        });
+      }
+    }
+
+    console.log(
+      `Gumroad listings sync: matched=${matched} unmatched=${unmatched.length} skippedExisting=${skippedExisting}`
+    );
+
+    await db
+      .update(syncRuns)
+      .set({ status: "ok", finishedAt: new Date(), rowsWritten: matched })
+      .where(eq(syncRuns.id, run.id));
+
+    return { ok: true, matched, skippedExisting, unmatched };
   } catch (err) {
     await db
       .update(syncRuns)
