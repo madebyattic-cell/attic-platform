@@ -26,7 +26,7 @@ export async function syncGa4PageViews() {
 
     const [response] = await client.runReport({
       property: `properties/${propertyId}`,
-      dateRanges: [{ startDate: "today", endDate: "today" }],
+      dateRanges: [{ startDate: "30daysAgo", endDate: "yesterday" }],
       dimensions: [{ name: "pagePath" }, { name: "date" }],
       metrics: [{ name: "screenPageViews" }, { name: "sessions" }],
       limit: 10000,
