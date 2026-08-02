@@ -240,10 +240,8 @@ export default async function ListingsPage() {
                   <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
                     {row.seriesName ?? "—"}
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {row.channels.map((c, i) => (
-                      <ChannelBadge key={i} name={c.name} channelKey={c.key} price={c.price} />
-                    ))}
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                    {row.channels.map((c) => c.name).join(" & ")}
                   </div>
                   <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
                     {row.orders || "—"}
