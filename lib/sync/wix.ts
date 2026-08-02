@@ -43,6 +43,7 @@ async function fetchWixOrders(cursor?: string): Promise<{ orders: WixOrder[]; ne
   }
 
   const json = await res.json();
+  console.log("Wix raw response keys:", Object.keys(json), "metadata:", JSON.stringify(json.metadata ?? {}));
   return {
     orders: json.orders ?? [],
     nextCursor: json.metadata?.cursors?.next,
@@ -114,9 +115,20 @@ export async function syncWixOrders() {
 
     let cursor: string | undefined;
     let written = 0;
+    let pageCount = 0;
+    const MAX_PAGES = 20;
 
     do {
+      pageCount++;
+      if (pageCount > MAX_PAGES) {
+        console.log(`Wix sync: hit MAX_PAGES (${MAX_PAGES}), stopping to avoid runaway loop`);
+        break;
+      }
+
       const page = await fetchWixOrders(cursor);
+      console.log(
+        `Wix sync page ${pageCount}: got ${page.orders.length} orders, nextCursor=${page.nextCursor ?? "none"}`
+      );
 
       for (const o of page.orders) {
         if (seenOrderIds.has(o.id)) continue;
