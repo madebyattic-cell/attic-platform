@@ -1,32 +1,38 @@
 import Link from "next/link";
 
-const mainLinks = [
-  { href: "/", label: "Overview", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
-  { href: "/listings", label: "Listings", icon: "M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM14 13a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1h-4a1 1 0 01-1-1v-6z" },
-  { href: "/series", label: "Series", icon: "M4 6h16M4 12h16M4 18h7" },
-  { href: "/performance", label: "Performance", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
-  { href: "/customers", label: "Customers", icon: "M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4z" },
-  { href: "/segments", label: "Segments", icon: "M12 2l3 7h7l-5.5 4.5L18 21l-6-4.5L6 21l1.5-7.5L2 9h7z" },
-  { href: "/analytics", label: "Analytics", icon: "M9 19V6l7 5-7 5z" },
-  { href: "/seo-diagnostics", label: "SEO Diagnostics", icon: "M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" },
-  { href: "/sync-health", label: "Sync Health", icon: "M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M4 4v5h5M20 20v-5h-5" },
-  { href: "/products/new", label: "Add product", icon: "M12 4v16m8-8H4" },
+const SECTIONS: { label: string; links: { href: string; label: string }[] }[] = [
+  {
+    label: "CATALOG",
+    links: [
+      { href: "/listings", label: "Listings" },
+      { href: "/series", label: "Series" },
+      { href: "/products/new", label: "Add product" },
+    ],
+  },
+  {
+    label: "INSIGHTS",
+    links: [
+      { href: "/performance", label: "Performance" },
+      { href: "/analytics", label: "Analytics" },
+      { href: "/seo-diagnostics", label: "SEO Diagnostics" },
+    ],
+  },
+  {
+    label: "CUSTOMERS",
+    links: [
+      { href: "/customers", label: "All Customers" },
+      { href: "/segments", label: "Segments" },
+    ],
+  },
+  {
+    label: "OPERATIONS",
+    links: [
+      { href: "/reconcile/gumroad", label: "Gumroad Matches" },
+      { href: "/reconcile/orders", label: "Order Attribution" },
+      { href: "/sync-health", label: "Sync Health" },
+    ],
+  },
 ];
-
-const comingSoonLinks: typeof mainLinks = [];
-
-const reconcileLinks = [
-  { href: "/reconcile/gumroad", label: "Gumroad matches" },
-  { href: "/reconcile/orders", label: "Order attribution" },
-];
-
-function NavIcon({ d }: { d: string }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} style={{ flexShrink: 0 }}>
-      <path d={d} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 export function Sidebar() {
   return (
@@ -40,9 +46,10 @@ export function Sidebar() {
         flexDirection: "column",
         gap: 2,
         padding: "18px 12px",
+        overflowY: "auto",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 4px", marginBottom: 16 }}>
+      <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 4px", marginBottom: 20, textDecoration: "none" }}>
         <div
           style={{
             width: 22,
@@ -54,73 +61,29 @@ export function Sidebar() {
           aria-hidden
         />
         <span style={{ fontSize: 13, color: "var(--text-primary)" }}>Made by Attic</span>
-      </div>
+      </Link>
 
-      {mainLinks.map((l) => (
-        <Link
-          key={l.href}
-          href={l.href}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "7px 8px",
-            borderRadius: 6,
-            color: "var(--text-secondary)",
-            fontSize: 13,
-            textDecoration: "none",
-          }}
-        >
-          <NavIcon d={l.icon} />
-          {l.label}
-        </Link>
-      ))}
-
-      <div style={{ height: 1, background: "var(--border)", margin: "10px 4px" }} />
-
-      <div style={{ fontSize: 10, color: "var(--text-muted)", padding: "0 8px", marginBottom: 4 }}>
-        RECONCILE
-      </div>
-      {reconcileLinks.map((l) => (
-        <Link
-          key={l.href}
-          href={l.href}
-          style={{
-            display: "block",
-            padding: "6px 8px",
-            borderRadius: 6,
-            color: "var(--text-secondary)",
-            fontSize: 12,
-            textDecoration: "none",
-          }}
-        >
-          {l.label}
-        </Link>
-      ))}
-
-      <div style={{ height: 1, background: "var(--border)", margin: "10px 4px" }} />
-
-      <div style={{ fontSize: 10, color: "var(--text-muted)", padding: "0 8px", marginBottom: 4 }}>
-        COMING SOON
-      </div>
-      {comingSoonLinks.map((l) => (
-        <div
-          key={l.href}
-          title="Not built yet"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "7px 8px",
-            borderRadius: 6,
-            color: "var(--text-muted)",
-            fontSize: 13,
-            opacity: 0.5,
-            cursor: "default",
-          }}
-        >
-          <NavIcon d={l.icon} />
-          {l.label}
+      {SECTIONS.map((section) => (
+        <div key={section.label} style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 10, color: "var(--text-muted)", padding: "0 8px", marginBottom: 4, letterSpacing: 0.5 }}>
+            {section.label}
+          </div>
+          {section.links.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              style={{
+                display: "block",
+                padding: "6px 8px",
+                borderRadius: 6,
+                color: "var(--text-secondary)",
+                fontSize: 13,
+                textDecoration: "none",
+              }}
+            >
+              {l.label}
+            </Link>
+          ))}
         </div>
       ))}
     </div>

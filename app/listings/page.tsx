@@ -1,207 +1,207 @@
 import { db } from "@/db/client";
-import { listings, products, series, channels, assets, orderItems } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-async function getListings() {
-  const rows = await db
-    .select({
-      listingId: listings.id,
-      productId: products.id,
-      internalName: products.internalName,
-      displayTitle: listings.displayTitle,
-      price: listings.price,
-      status: listings.status,
-      seriesName: series.name,
-      number: products.number,
-      channelKey: channels.key,
-      channelName: channels.name,
-      coverUrl: assets.url,
-    })
-    .from(listings)
-    .innerJoin(products, eq(listings.productId, products.id))
-    .leftJoin(series, eq(products.seriesId, series.id))
-    .innerJoin(channels, eq(listings.channelId, channels.id))
-    .leftJoin(assets, and(eq(assets.productId, products.id), eq(assets.kind, "cover")))
-    .orderBy(series.name, products.number);
+const PAGE_SIZE = 50;
 
-  const revenueRows = await db
-    .select({
-      productId: orderItems.productId,
-      orders: sql<number>`count(*)::int`,
-      revenue: sql<string>`sum(${orderItems.gross})::text`,
-    })
-    .from(orderItems)
-    .where(sql`${orderItems.productId} is not null`)
-    .groupBy(orderItems.productId);
-
-  const revenueByProduct = new Map(
-    revenueRows.map((r) => [r.productId as string, { orders: r.orders, revenue: Number(r.revenue) }])
-  );
-
-  // Group the per-channel rows into one row per product.
-  const byProduct = new Map<
-    string,
-    {
-      productId: string;
-      displayTitle: string;
-      seriesName: string | null;
-      number: number | null;
-      coverUrl: string | null;
-      channels: { key: string; name: string; price: string | null; status: string }[];
-      orders: number;
-      revenue: number;
-    }
-  >();
-
-  for (const row of rows) {
-    const existing = byProduct.get(row.productId);
-    const channelEntry = {
-      key: row.channelKey,
-      name: row.channelName,
-      price: row.price,
-      status: row.status,
-    };
-    if (existing) {
-      existing.channels.push(channelEntry);
-      if (!existing.coverUrl && row.coverUrl) existing.coverUrl = row.coverUrl;
-    } else {
-      byProduct.set(row.productId, {
-        productId: row.productId,
-        displayTitle: row.displayTitle ?? row.internalName,
-        seriesName: row.seriesName,
-        number: row.number,
-        coverUrl: row.coverUrl,
-        channels: [channelEntry],
-        orders: revenueByProduct.get(row.productId)?.orders ?? 0,
-        revenue: revenueByProduct.get(row.productId)?.revenue ?? 0,
-      });
-    }
-  }
-
-  return Array.from(byProduct.values()).sort((a, b) => {
-    const seriesCompare = (a.seriesName ?? "").localeCompare(b.seriesName ?? "");
-    if (seriesCompare !== 0) return seriesCompare;
-    return (a.number ?? 0) - (b.number ?? 0);
-  });
-}
-
-function StatusPill({ status }: { status: string }) {
-  const map: Record<string, { bg: string; text: string; label: string }> = {
-    live: { bg: "var(--bg-success)", text: "var(--text-success)", label: "Live" },
-    draft: { bg: "var(--surface-1)", text: "var(--text-muted)", label: "Draft" },
-    unlisted: { bg: "var(--bg-warning)", text: "var(--text-warning)", label: "Unlisted" },
-  };
-  const s = map[status] ?? map.draft;
-  return (
-    <span
-      style={{
-        background: s.bg,
-        color: s.text,
-        fontSize: 10,
-        padding: "2px 8px",
-        borderRadius: 5,
-      }}
-    >
-      {s.label}
-    </span>
-  );
-}
-
-const CHANNEL_COLORS: Record<string, string> = {
-  wix: "#3B7DD8",
-  gumroad: "#FF90E8",
-  creative_market: "#7C5CFC",
-  behance: "#053EFF",
+type Row = {
+  product_id: string;
+  display_title: string;
+  series_name: string | null;
+  cover_url: string | null;
+  channels: string; // comma-joined
+  orders: number;
+  revenue: string;
 };
 
-function ChannelBadge({ name, channelKey, price }: { name: string; channelKey: string; price: string | null }) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        fontSize: 11,
-        padding: "3px 8px",
-        borderRadius: 5,
-        background: "var(--surface-1)",
-        color: "var(--text-secondary)",
-        border: `1px solid ${CHANNEL_COLORS[channelKey] ?? "var(--border)"}`,
-      }}
-    >
-      {name}
-      {price ? ` · $${price}` : ""}
-    </span>
-  );
+type SortKey = "name" | "series" | "orders" | "revenue";
+const SORT_COLUMNS: Record<SortKey, string> = {
+  name: "display_title",
+  series: "series_name",
+  orders: "orders",
+  revenue: "revenue",
+};
+
+async function getListings(params: {
+  q: string;
+  channel: string;
+  sort: SortKey;
+  dir: "asc" | "desc";
+  page: number;
+}) {
+  const { q, channel, sort, dir, page } = params;
+  const offset = (page - 1) * PAGE_SIZE;
+  const sortColumn = sql.raw(SORT_COLUMNS[sort]);
+  const sortDir = dir === "asc" ? sql`asc` : sql`desc`;
+
+  const channelFilter =
+    channel === "wix"
+      ? sql`and exists (select 1 from listings l2 join channels c2 on l2.channel_id=c2.id where l2.product_id=p.id and c2.key='wix')`
+      : channel === "gumroad"
+        ? sql`and exists (select 1 from listings l2 join channels c2 on l2.channel_id=c2.id where l2.product_id=p.id and c2.key='gumroad')`
+        : channel === "both"
+          ? sql`and (select count(distinct c2.key) from listings l2 join channels c2 on l2.channel_id=c2.id where l2.product_id=p.id) >= 2`
+          : sql``;
+
+  const searchFilter = q ? sql`and (p.internal_name ilike ${"%" + q + "%"} or s.name ilike ${"%" + q + "%"})` : sql``;
+
+  const countResult = await db.execute<{ total: number }>(sql`
+    select count(*)::int as total
+    from products p
+    left join series s on p.series_id = s.id
+    where exists (select 1 from listings l where l.product_id = p.id)
+    ${searchFilter}
+    ${channelFilter}
+  `);
+  const total = countResult.rows[0]?.total ?? 0;
+
+  const result = await db.execute<Row>(sql`
+    with agg as (
+      select
+        p.id as product_id,
+        p.internal_name as display_title,
+        s.name as series_name,
+        (select coalesce(array_to_string(array_agg(distinct c2.name order by c2.name), ', '), '')
+         from listings l2 join channels c2 on l2.channel_id = c2.id where l2.product_id = p.id) as channels,
+        (select count(*)::int from order_items oi where oi.product_id = p.id) as orders,
+        (select coalesce(sum(oi.gross), 0)::text from order_items oi where oi.product_id = p.id) as revenue,
+        (select a.url from assets a where a.product_id = p.id and a.kind = 'cover' limit 1) as cover_url
+      from products p
+      left join series s on p.series_id = s.id
+      where exists (select 1 from listings l where l.product_id = p.id)
+      ${searchFilter}
+      ${channelFilter}
+    )
+    select * from agg
+    order by ${sortColumn} ${sortDir} nulls last
+    limit ${PAGE_SIZE} offset ${offset}
+  `);
+
+  return { rows: result.rows, total };
 }
 
-const GRID_COLUMNS = "2.2fr 1fr 1.6fr 0.6fr 0.8fr";
+function formatMoney(value: string | number) {
+  const n = Number(value);
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
 
-export default async function ListingsPage() {
-  const rows = await getListings();
+function buildQuery(overrides: Record<string, string | number>, current: Record<string, string>) {
+  const merged = { ...current, ...Object.fromEntries(Object.entries(overrides).map(([k, v]) => [k, String(v)])) };
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(merged)) {
+    if (v) params.set(k, v);
+  }
+  return `/listings?${params.toString()}`;
+}
+
+export default async function ListingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; channel?: string; sort?: string; dir?: string; page?: string }>;
+}) {
+  const sp = await searchParams;
+  const q = sp.q ?? "";
+  const channel = sp.channel ?? "all";
+  const sort = (["name", "series", "orders", "revenue"].includes(sp.sort ?? "") ? sp.sort : "name") as SortKey;
+  const dir = sp.dir === "asc" ? "asc" : "desc";
+  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+
+  const { rows, total } = await getListings({ q, channel, sort, dir, page });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const currentParams = { q, channel, sort, dir, page: String(page) };
+
+  function SortHeader({ label, sortKey, style }: { label: string; sortKey: SortKey; style?: React.CSSProperties }) {
+    const isActive = sort === sortKey;
+    const nextDir = isActive && dir === "desc" ? "asc" : "desc";
+    return (
+      <Link
+        href={buildQuery({ sort: sortKey, dir: nextDir, page: 1 }, currentParams)}
+        style={{ textDecoration: "none", color: isActive ? "var(--text-primary)" : "var(--text-muted)", display: "flex", alignItems: "center", gap: 4, ...style }}
+      >
+        {label}
+        {isActive && <span style={{ fontSize: 10 }}>{dir === "desc" ? "▼" : "▲"}</span>}
+      </Link>
+    );
+  }
+
+  const GRID = "2.2fr 1fr 1.4fr 0.6fr 0.8fr";
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--surface-0)" }}>
       <Sidebar />
       <div style={{ flex: 1 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "16px 24px",
-            borderBottom: "0.5px solid var(--border)",
-          }}
-        >
-          <span style={{ fontSize: 15, color: "var(--text-primary)" }}>
-            Listings <span style={{ color: "var(--text-muted)", fontSize: 12 }}>({rows.length})</span>
-          </span>
-          <div style={{ display: "flex", gap: 10 }}>
-            <input placeholder="Search listings..." style={{ width: 200 }} />
+        <div style={{ padding: "16px 24px", borderBottom: "0.5px solid var(--border)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <span style={{ fontSize: 15, color: "var(--text-primary)" }}>
+              Listings <span style={{ color: "var(--text-muted)", fontSize: 12 }}>({total})</span>
+            </span>
             <a href="/products/new">
               <button type="button">Add product</button>
             </a>
           </div>
+          <form action="/listings" method="get" style={{ display: "flex", gap: 10 }}>
+            <input type="hidden" name="sort" value={sort} />
+            <input type="hidden" name="dir" value={dir} />
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="Search product or series..."
+              style={{ width: 260, padding: "6px 10px", fontSize: 13, border: "0.5px solid var(--border)", borderRadius: 6 }}
+            />
+            <select
+              name="channel"
+              defaultValue={channel}
+              style={{ padding: "6px 10px", fontSize: 13, border: "0.5px solid var(--border)", borderRadius: 6 }}
+            >
+              <option value="all">All channels</option>
+              <option value="wix">Wix only</option>
+              <option value="gumroad">Gumroad only</option>
+              <option value="both">Wix &amp; Gumroad</option>
+            </select>
+            <button type="submit">Filter</button>
+            {(q || channel !== "all") && (
+              <Link href="/listings" style={{ fontSize: 13, color: "var(--text-muted)", alignSelf: "center" }}>
+                Clear
+              </Link>
+            )}
+          </form>
         </div>
 
         {rows.length === 0 ? (
           <div style={{ padding: "60px 24px", textAlign: "center" }}>
-            <p style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-              No listings yet. Run the Wix and Gumroad sync, or add one manually.
-            </p>
+            <p style={{ fontSize: 14, color: "var(--text-secondary)" }}>No products match this search/filter.</p>
           </div>
         ) : (
           <div>
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: GRID_COLUMNS,
+                gridTemplateColumns: GRID,
                 padding: "10px 24px",
                 fontSize: 11,
                 color: "var(--text-muted)",
                 borderBottom: "0.5px solid var(--border)",
               }}
             >
-              <div>Product</div>
-              <div>Series</div>
+              <SortHeader label="Product" sortKey="name" />
+              <SortHeader label="Series" sortKey="series" />
               <div>Channels</div>
-              <div>Orders</div>
-              <div>Revenue</div>
+              <SortHeader label="Orders" sortKey="orders" />
+              <SortHeader label="Revenue" sortKey="revenue" />
             </div>
             {rows.map((row) => (
               <Link
-                key={row.productId}
-                href={`/products/${row.productId}`}
+                key={row.product_id}
+                href={`/products/${row.product_id}`}
                 style={{ textDecoration: "none", color: "inherit", display: "block" }}
               >
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: GRID_COLUMNS,
+                    gridTemplateColumns: GRID,
                     alignItems: "center",
                     padding: "11px 24px",
                     borderBottom: "0.5px solid var(--border)",
@@ -209,49 +209,39 @@ export default async function ListingsPage() {
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    {row.coverUrl ? (
+                    {row.cover_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={row.coverUrl}
-                        alt=""
-                        style={{
-                          width: 32,
-                          height: 48,
-                          borderRadius: 6,
-                          objectFit: "cover",
-                          flexShrink: 0,
-                        }}
-                      />
+                      <img src={row.cover_url} alt="" style={{ width: 32, height: 48, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
                     ) : (
-                      <div
-                        style={{
-                          width: 32,
-                          height: 48,
-                          borderRadius: 6,
-                          background: "linear-gradient(135deg, #C1653B, #A8522E)",
-                          flexShrink: 0,
-                        }}
-                      />
+                      <div style={{ width: 32, height: 48, borderRadius: 6, background: "linear-gradient(135deg, #C1653B, #A8522E)", flexShrink: 0 }} />
                     )}
-                    <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                      {row.displayTitle}
-                    </span>
+                    <span style={{ fontSize: 13, color: "var(--text-primary)" }}>{row.display_title}</span>
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                    {row.seriesName ?? "—"}
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                    {row.channels.map((c) => c.name).join(" & ")}
-                  </div>
-                  <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                    {row.orders || "—"}
-                  </div>
-                  <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                    {row.revenue ? `$${row.revenue.toFixed(2)}` : "—"}
-                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{row.series_name ?? "—"}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{row.channels || "—"}</div>
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{row.orders || "—"}</div>
+                  <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{formatMoney(row.revenue)}</div>
                 </div>
               </Link>
             ))}
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px" }}>
+              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                Page {page} of {totalPages}
+              </span>
+              <div style={{ display: "flex", gap: 8 }}>
+                {page > 1 && (
+                  <Link href={buildQuery({ page: page - 1 }, currentParams)} style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                    ← Previous
+                  </Link>
+                )}
+                {page < totalPages && (
+                  <Link href={buildQuery({ page: page + 1 }, currentParams)} style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                    Next →
+                  </Link>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
