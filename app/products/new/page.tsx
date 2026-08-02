@@ -67,7 +67,9 @@ export default async function NewProductPage() {
 
           <div style={{ borderTop: "0.5px solid var(--border)", paddingTop: 18, marginTop: 4 }}>
             <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 10 }}>
-              Channel prices — leave blank to skip that channel
+              Channel prices — leave blank to skip that channel. Set the Wix price
+              first and the others fill in automatically; edit any of them by hand
+              to stop the auto-fill for that one.
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {allChannels.map((c) => (
@@ -76,11 +78,13 @@ export default async function NewProductPage() {
                     {c.name}
                   </span>
                   <input
+                    id={`price_${c.key}`}
                     name={`price_${c.key}`}
                     type="number"
                     step="0.01"
                     placeholder="0.00"
                     style={{ width: 120 }}
+                    data-user-edited="false"
                   />
                 </div>
               ))}
@@ -94,6 +98,41 @@ export default async function NewProductPage() {
             </a>
           </div>
         </form>
+
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                var wixInput = document.getElementById('price_wix');
+                if (!wixInput) return;
+
+                var others = ['gumroad', 'creative_market', 'behance']
+                  .map(function (key) { return document.getElementById('price_' + key); })
+                  .filter(Boolean);
+
+                others.forEach(function (el) {
+                  el.addEventListener('input', function () {
+                    el.setAttribute('data-user-edited', 'true');
+                  });
+                });
+
+                var offsets = { gumroad: 2, creative_market: 3, behance: 7 };
+
+                wixInput.addEventListener('input', function () {
+                  var wixPrice = parseFloat(wixInput.value);
+                  if (isNaN(wixPrice)) return;
+
+                  others.forEach(function (el) {
+                    if (el.getAttribute('data-user-edited') === 'true') return;
+                    var key = el.id.replace('price_', '');
+                    var offset = offsets[key] || 0;
+                    el.value = (wixPrice + offset).toFixed(2);
+                  });
+                });
+              })();
+            `,
+          }}
+        />
       </div>
     </div>
   );
