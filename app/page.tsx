@@ -1,6 +1,7 @@
 import { db } from "@/db/client";
 import { sql } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,9 @@ type ChannelRow = {
 };
 
 type ProductRow = {
-  description: string;
+  product_id: string | null;
+  name: string;
+  series_name: string | null;
   order_count: number;
   gross: string;
 };
@@ -46,15 +49,21 @@ async function getDashboardData() {
     order by sum(o.gross) desc
   `);
 
+  // Grouped by real product now that order attribution links to actual
+  // catalog rows, instead of raw per-sale description text.
   const topProductsResult = await db.execute<ProductRow>(sql`
     select
-      coalesce(oi.description_raw, 'Unknown') as description,
+      p.id as product_id,
+      p.internal_name as name,
+      s.name as series_name,
       count(*)::int as order_count,
       coalesce(sum(oi.gross), 0)::text as gross
     from order_items oi
-    group by oi.description_raw
+    join products p on oi.product_id = p.id
+    left join series s on p.series_id = s.id
+    group by p.id, p.internal_name, s.name
     order by sum(oi.gross) desc
-    limit 8
+    limit 10
   `);
 
   return {
@@ -161,26 +170,41 @@ export default async function OverviewPage() {
               {topProducts.length === 0 ? (
                 <div style={{ padding: 16, fontSize: 13, color: "var(--text-secondary)" }}>No sales yet.</div>
               ) : (
-                topProducts.map((row, i) => (
-                  <div
-                    key={row.description + i}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "12px 16px",
-                      borderBottom: i < topProducts.length - 1 ? "0.5px solid var(--border)" : "none",
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{row.description}</div>
-                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                        {Number(row.order_count).toLocaleString()} sold
+                topProducts.map((row, i) => {
+                  const content = (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "12px 16px",
+                        borderBottom: i < topProducts.length - 1 ? "0.5px solid var(--border)" : "none",
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{row.name}</div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                          {row.series_name ? `${row.series_name} · ` : ""}
+                          {Number(row.order_count).toLocaleString()} sold
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--text-primary)", flexShrink: 0 }}>
+                        {formatMoney(row.gross)}
                       </div>
                     </div>
-                    <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{formatMoney(row.gross)}</div>
-                  </div>
-                ))
+                  );
+                  return row.product_id ? (
+                    <Link
+                      key={row.product_id}
+                      href={`/products/${row.product_id}`}
+                      style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                    >
+                      {content}
+                    </Link>
+                  ) : (
+                    <div key={row.name + i}>{content}</div>
+                  );
+                })
               )}
             </div>
           </div>
