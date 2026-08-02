@@ -113,10 +113,17 @@ export default async function OverviewPage() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 24 }}>
           <div>
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>By channel</div>
-            <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 10 }}>
+            <div
+              style={{
+                background: "var(--surface-2)",
+                border: "0.5px solid var(--border)",
+                borderRadius: 10,
+                width: "100%",
+              }}
+            >
               {byChannel.length === 0 ? (
                 <div style={{ padding: 16, fontSize: 13, color: "var(--text-secondary)" }}>No orders yet.</div>
               ) : (
@@ -129,15 +136,16 @@ export default async function OverviewPage() {
                       alignItems: "center",
                       padding: "12px 16px",
                       borderBottom: i < byChannel.length - 1 ? "0.5px solid var(--border)" : "none",
+                      gap: 16,
                     }}
                   >
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{row.name}</div>
                       <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
                         {Number(row.order_count).toLocaleString()} orders
                       </div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
                       <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{formatMoney(row.gross)}</div>
                       <div style={{ fontSize: 11, color: "var(--text-accent)" }}>{formatMoney(row.net)} net</div>
                     </div>
