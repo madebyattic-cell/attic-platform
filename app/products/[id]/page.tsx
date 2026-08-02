@@ -1,11 +1,28 @@
 import { db } from "@/db/client";
-import { products, series, listings, channels, orderItems, orders } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { products, series, listings, channels, orderItems, orders, metricsDaily } from "@/db/schema";
+import { eq, desc, and } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
 import { StatusActions } from "@/components/status-actions";
+import { ManualViewsForm } from "@/components/manual-views-form";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
+
+async function getManualViews(productId: string) {
+  return db
+    .select({
+      id: metricsDaily.id,
+      day: metricsDaily.day,
+      views: metricsDaily.views,
+      channelName: channels.name,
+    })
+    .from(metricsDaily)
+    .innerJoin(listings, eq(metricsDaily.listingId, listings.id))
+    .innerJoin(channels, eq(listings.channelId, channels.id))
+    .where(and(eq(listings.productId, productId), eq(metricsDaily.source, "manual")))
+    .orderBy(desc(metricsDaily.day))
+    .limit(20);
+}
 
 async function getListingsForProduct(productId: string) {
   return db
@@ -51,9 +68,10 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     ? await db.query.series.findFirst({ where: eq(series.id, product.seriesId) })
     : null;
 
-  const [listingRows, orderRows] = await Promise.all([
+  const [listingRows, orderRows, manualViews] = await Promise.all([
     getListingsForProduct(product.id),
     getOrdersForProduct(product.id),
+    getManualViews(product.id),
   ]);
 
   const totalRevenue = orderRows.reduce((sum, o) => sum + Number(o.gross || 0), 0);
@@ -126,6 +144,24 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 </span>
               </div>
             ))
+          )}
+
+          <div style={{ fontSize: 13, color: "var(--text-primary)", margin: "24px 0 8px" }}>
+            Manual views
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <ManualViewsForm productId={product.id} />
+          </div>
+          {manualViews.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              {manualViews.map((v) => (
+                <div key={v.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12, color: "var(--text-secondary)", borderBottom: "0.5px solid var(--border)" }}>
+                  <span>{v.channelName}</span>
+                  <span>{new Date(v.day).toLocaleDateString()}</span>
+                  <span>{v.views} views</span>
+                </div>
+              ))}
+            </div>
           )}
 
           <div style={{ fontSize: 13, color: "var(--text-primary)", margin: "24px 0 8px" }}>
