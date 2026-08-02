@@ -1,65 +1,183 @@
-import Image from "next/image";
+import { db } from "@/db/client";
+import { sql } from "drizzle-orm";
+import { Sidebar } from "@/components/sidebar";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+type ChannelRow = {
+  name: string;
+  order_count: number;
+  gross: string;
+  net: string;
+};
+
+type ProductRow = {
+  description: string;
+  order_count: number;
+  gross: string;
+};
+
+type TotalsRow = {
+  order_count: number;
+  gross: string;
+  net: string;
+  customer_count: number;
+};
+
+async function getDashboardData() {
+  const totalsResult = await db.execute<TotalsRow>(sql`
+    select
+      count(distinct o.id)::int as order_count,
+      coalesce(sum(o.gross), 0)::text as gross,
+      coalesce(sum(o.net), 0)::text as net,
+      (select count(*) from customers)::int as customer_count
+    from orders o
+  `);
+
+  const byChannelResult = await db.execute<ChannelRow>(sql`
+    select
+      c.name as name,
+      count(o.id)::int as order_count,
+      coalesce(sum(o.gross), 0)::text as gross,
+      coalesce(sum(o.net), 0)::text as net
+    from orders o
+    join channels c on c.id = o.channel_id
+    group by c.name
+    order by sum(o.gross) desc
+  `);
+
+  const topProductsResult = await db.execute<ProductRow>(sql`
+    select
+      coalesce(oi.description_raw, 'Unknown') as description,
+      count(*)::int as order_count,
+      coalesce(sum(oi.gross), 0)::text as gross
+    from order_items oi
+    group by oi.description_raw
+    order by sum(oi.gross) desc
+    limit 8
+  `);
+
+  return {
+    totals: totalsResult.rows[0] ?? { order_count: 0, gross: "0", net: "0", customer_count: 0 },
+    byChannel: byChannelResult.rows,
+    topProducts: topProductsResult.rows,
+  };
+}
+
+function formatMoney(value: string | number) {
+  const n = Number(value);
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
+export default async function OverviewPage() {
+  const { totals, byChannel, topProducts } = await getDashboardData();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div style={{ display: "flex", minHeight: "100vh", background: "var(--surface-0)" }}>
+      <Sidebar />
+      <div style={{ flex: 1, padding: "24px 32px" }}>
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ fontFamily: "var(--font-voice)", fontSize: 22, color: "var(--text-primary)", margin: 0 }}>
+            Revenue overview
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>All channels, all time</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 12,
+            marginBottom: 28,
+          }}
+        >
+          <div style={{ background: "var(--surface-1)", borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>Gross revenue</div>
+            <div style={{ fontSize: 20, color: "var(--text-primary)" }}>{formatMoney(totals.gross)}</div>
+          </div>
+          <div style={{ background: "var(--surface-1)", borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>Net revenue</div>
+            <div style={{ fontSize: 20, color: "var(--text-accent)" }}>{formatMoney(totals.net)}</div>
+          </div>
+          <div style={{ background: "var(--surface-1)", borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>Orders</div>
+            <div style={{ fontSize: 20, color: "var(--text-primary)" }}>
+              {Number(totals.order_count).toLocaleString()}
+            </div>
+          </div>
+          <div style={{ background: "var(--surface-1)", borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>Customers</div>
+            <div style={{ fontSize: 20, color: "var(--text-primary)" }}>
+              {Number(totals.customer_count).toLocaleString()}
+            </div>
+          </div>
         </div>
-      </main>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          <div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>By channel</div>
+            <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 10 }}>
+              {byChannel.length === 0 ? (
+                <div style={{ padding: 16, fontSize: 13, color: "var(--text-secondary)" }}>No orders yet.</div>
+              ) : (
+                byChannel.map((row, i) => (
+                  <div
+                    key={row.name}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "12px 16px",
+                      borderBottom: i < byChannel.length - 1 ? "0.5px solid var(--border)" : "none",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{row.name}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                        {Number(row.order_count).toLocaleString()} orders
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{formatMoney(row.gross)}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-accent)" }}>{formatMoney(row.net)} net</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>Top products</div>
+            <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 10 }}>
+              {topProducts.length === 0 ? (
+                <div style={{ padding: 16, fontSize: 13, color: "var(--text-secondary)" }}>No sales yet.</div>
+              ) : (
+                topProducts.map((row, i) => (
+                  <div
+                    key={row.description + i}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "12px 16px",
+                      borderBottom: i < topProducts.length - 1 ? "0.5px solid var(--border)" : "none",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{row.description}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                        {Number(row.order_count).toLocaleString()} sold
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{formatMoney(row.gross)}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
