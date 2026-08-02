@@ -1,13 +1,13 @@
 import { db } from "@/db/client";
-import { listings, products, series, channels, assets } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { listings, products, series, channels, assets, orderItems } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 async function getListings() {
-  return db
+  const rows = await db
     .select({
       id: listings.id,
       productId: products.id,
@@ -25,9 +25,26 @@ async function getListings() {
     .innerJoin(channels, eq(listings.channelId, channels.id))
     .leftJoin(assets, and(eq(assets.productId, products.id), eq(assets.kind, "cover")))
     .orderBy(series.name, products.number, channels.name);
-  // No .limit() — this page is meant to show everything. If the catalog grows
-  // large enough that this gets slow, add real pagination then rather than
-  // silently truncating results again.
+
+  const revenueRows = await db
+    .select({
+      productId: orderItems.productId,
+      orders: sql<number>`count(*)::int`,
+      revenue: sql<string>`sum(${orderItems.gross})::text`,
+    })
+    .from(orderItems)
+    .where(sql`${orderItems.productId} is not null`)
+    .groupBy(orderItems.productId);
+
+  const revenueByProduct = new Map(
+    revenueRows.map((r) => [r.productId as string, { orders: r.orders, revenue: Number(r.revenue) }])
+  );
+
+  return rows.map((row) => ({
+    ...row,
+    orders: revenueByProduct.get(row.productId)?.orders ?? 0,
+    revenue: revenueByProduct.get(row.productId)?.revenue ?? 0,
+  }));
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -51,6 +68,8 @@ function StatusPill({ status }: { status: string }) {
     </span>
   );
 }
+
+const GRID_COLUMNS = "2fr 1fr 0.8fr 0.7fr 0.6fr 0.6fr 0.8fr";
 
 export default async function ListingsPage() {
   const rows = await getListings();
@@ -90,7 +109,7 @@ export default async function ListingsPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "2.2fr 1.2fr 1fr 0.9fr 0.7fr",
+                gridTemplateColumns: GRID_COLUMNS,
                 padding: "10px 24px",
                 fontSize: 11,
                 color: "var(--text-muted)",
@@ -102,6 +121,8 @@ export default async function ListingsPage() {
               <div>Channel</div>
               <div>Status</div>
               <div>Price</div>
+              <div>Orders</div>
+              <div>Revenue</div>
             </div>
             {rows.map((row) => (
               <Link
@@ -112,7 +133,7 @@ export default async function ListingsPage() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "2.2fr 1.2fr 1fr 0.9fr 0.7fr",
+                    gridTemplateColumns: GRID_COLUMNS,
                     alignItems: "center",
                     padding: "11px 24px",
                     borderBottom: "0.5px solid var(--border)",
@@ -159,6 +180,12 @@ export default async function ListingsPage() {
                   </div>
                   <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
                     {row.price ? `$${row.price}` : "—"}
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                    {row.orders || "—"}
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                    {row.revenue ? `$${row.revenue.toFixed(2)}` : "—"}
                   </div>
                 </div>
               </Link>
