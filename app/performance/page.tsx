@@ -1,6 +1,8 @@
 import { db } from "@/db/client";
 import { sql } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
+import { TabBar } from "@/components/tab-bar";
+import { SALES_TABS } from "@/components/nav-tabs";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -106,6 +108,7 @@ export default async function PerformancePage({
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--surface-0)" }}>
       <Sidebar />
       <div style={{ flex: 1, padding: "24px 32px" }}>
+        <TabBar tabs={SALES_TABS} active={view === "best" ? "Best Selling" : view === "low" ? "Low Performing" : ""} />
         <div style={{ marginBottom: 12 }}>
           <h1 style={{ fontFamily: "var(--font-voice)", fontSize: 22, color: "var(--text-primary)", margin: 0 }}>
             {pageTitle}

@@ -1,6 +1,8 @@
 import { db } from "@/db/client";
 import { sql } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
+import { TabBar } from "@/components/tab-bar";
+import { CATALOG_TABS } from "@/components/nav-tabs";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -191,7 +193,10 @@ export default async function ListingsPage({
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--surface-0)" }}>
       <Sidebar />
       <div style={{ flex: 1 }}>
-        <div style={{ padding: "16px 24px", borderBottom: "0.5px solid var(--border)" }}>
+        <div style={{ padding: "16px 24px 0" }}>
+          <TabBar tabs={CATALOG_TABS} active={pageTitle} />
+        </div>
+        <div style={{ padding: "0 24px 16px", borderBottom: "0.5px solid var(--border)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <span style={{ fontSize: 15, color: "var(--text-primary)" }}>
               {pageTitle} <span style={{ color: "var(--text-muted)", fontSize: 12 }}>({total})</span>

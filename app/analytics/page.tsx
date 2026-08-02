@@ -1,6 +1,8 @@
 import { db } from "@/db/client";
 import { sql } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
+import { TabBar } from "@/components/tab-bar";
+import { ANALYTICS_TABS } from "@/components/nav-tabs";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -94,6 +96,7 @@ export default async function AnalyticsPage() {
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--surface-0)" }}>
       <Sidebar />
       <div style={{ flex: 1, padding: "24px 32px" }}>
+        <TabBar tabs={ANALYTICS_TABS} active="All Time Analytics" />
         <div style={{ marginBottom: 20 }}>
           <h1 style={{ fontFamily: "var(--font-voice)", fontSize: 22, color: "var(--text-primary)", margin: 0 }}>
             Analytics

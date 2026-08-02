@@ -5,9 +5,6 @@ import { usePathname } from "next/navigation";
 import { type ReactNode } from "react";
 import { RefreshButton } from "./refresh-button";
 
-type NavLink = { href: string; label: string };
-type NavSection = { label: string; icon: ReactNode; hubHref: string; links: NavLink[] };
-
 function Icon({ children }: { children: ReactNode }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} style={{ flexShrink: 0 }}>
@@ -66,84 +63,14 @@ const ICONS = {
   ),
 };
 
-const SECTIONS: NavSection[] = [
-  {
-    label: "Catalog",
-    icon: ICONS.folder,
-    hubHref: "/listings",
-    links: [
-      { href: "/listings", label: "All Products" },
-      { href: "/listings?kind=mockup", label: "Mockups" },
-      { href: "/series", label: "Series" },
-      { href: "/listings?kind=bundle", label: "Bundles" },
-      { href: "/listings?category=visuals", label: "Visuals" },
-    ],
-  },
-  {
-    label: "Orders",
-    icon: ICONS.bag,
-    hubHref: "/orders",
-    links: [
-      { href: "/orders/wix", label: "Wix Studio" },
-      { href: "/orders/gumroad", label: "Gumroad" },
-      { href: "/orders/creative-market", label: "Creative Market" },
-      { href: "/orders/behance", label: "Behance" },
-    ],
-  },
-  {
-    label: "Sales",
-    icon: ICONS.bag,
-    hubHref: "/performance",
-    links: [
-      { href: "/performance?view=best", label: "Best Selling" },
-      { href: "/performance?view=low", label: "Low Performing" },
-      { href: "/listings?status=retired", label: "Discontinue" },
-      { href: "/listings?status=archived", label: "Archive" },
-    ],
-  },
-  {
-    label: "Customers",
-    icon: ICONS.smiley,
-    hubHref: "/customers",
-    links: [
-      { href: "/segments?segment=champions", label: "Champions" },
-      { href: "/segments?segment=loyal", label: "Loyal" },
-      { href: "/segments?segment=potential_loyalist", label: "Potential" },
-      { href: "/segments?segment=new", label: "New" },
-      { href: "/segments?segment=at_risk", label: "At Risk" },
-      { href: "/segments?segment=lost", label: "Lost" },
-    ],
-  },
-  {
-    label: "Analytics",
-    icon: ICONS.chart,
-    hubHref: "/analytics",
-    links: [
-      { href: "/performance", label: "Product Scoring" },
-      { href: "/segments", label: "Client Scoring" },
-      { href: "/seo-diagnostics", label: "Seo Problems" },
-      { href: "/", label: "Shop Overview" },
-      { href: "/analytics", label: "All Time Analytics" },
-      { href: "/sync-health", label: "Problems" },
-    ],
-  },
-  {
-    label: "Finances",
-    icon: ICONS.banknote,
-    hubHref: "/finances",
-    links: [
-      { href: "/finances/income", label: "Income" },
-      { href: "/finances/expenses", label: "Expenses" },
-      { href: "/finances/overview", label: "Overview" },
-      { href: "/finances/actions", label: "Actions" },
-    ],
-  },
-  {
-    label: "Tools",
-    icon: ICONS.grid,
-    hubHref: "/settings",
-    links: [{ href: "/settings", label: "Settings" }],
-  },
+const TOP_LEVEL = [
+  { href: "/listings", label: "Catalog", icon: ICONS.folder },
+  { href: "/orders", label: "Orders", icon: ICONS.bag },
+  { href: "/performance", label: "Sales", icon: ICONS.bag },
+  { href: "/customers", label: "Customers", icon: ICONS.smiley },
+  { href: "/analytics", label: "Analytics", icon: ICONS.chart },
+  { href: "/finances", label: "Finances", icon: ICONS.banknote },
+  { href: "/settings", label: "Tools", icon: ICONS.grid },
 ];
 
 export function Sidebar() {
@@ -154,7 +81,7 @@ export function Sidebar() {
       style={{
         background: "var(--surface-1)",
         borderRight: "0.5px solid var(--border)",
-        width: 230,
+        width: 200,
         flexShrink: 0,
         display: "flex",
         flexDirection: "column",
@@ -197,48 +124,31 @@ export function Sidebar() {
           color: "var(--text-primary)",
           fontSize: 15,
           textDecoration: "none",
-          marginBottom: 18,
+          marginBottom: 4,
         }}
       >
         {ICONS.compass}
         Dashboard
       </Link>
 
-      {SECTIONS.map((section) => (
-        <div key={section.label} style={{ marginBottom: 18 }}>
-          <Link
-            href={section.hubHref}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              width: "100%",
-              padding: "6px 6px",
-              color: "var(--text-primary)",
-              fontSize: 15,
-              textDecoration: "none",
-            }}
-          >
-            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>▸</span>
-            {section.icon}
-            {section.label}
-          </Link>
-          <div style={{ marginLeft: 42, marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
-            {section.links.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                style={{
-                  color: "var(--text-secondary)",
-                  fontSize: 15,
-                  textDecoration: "none",
-                }}
-              >
-                {l.label}
-              </Link>
-            ))}
-          </div>
-        </div>
+      {TOP_LEVEL.map((item) => (
+        <Link
+          key={item.label}
+          href={item.href}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "9px 14px",
+            borderRadius: 999,
+            color: "var(--text-primary)",
+            fontSize: 15,
+            textDecoration: "none",
+          }}
+        >
+          {item.icon}
+          {item.label}
+        </Link>
       ))}
     </div>
   );
