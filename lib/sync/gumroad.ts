@@ -106,7 +106,7 @@ export async function syncGumroadSales() {
     let skippedRefunded = 0;
     let skippedDuplicate = 0;
     let pageCount = 0;
-    const MAX_PAGES = 20;
+    const MAX_PAGES = 100;
 
     do {
       pageCount++;
