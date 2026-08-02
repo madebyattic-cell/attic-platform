@@ -221,3 +221,20 @@ export const syncRuns = pgTable("sync_runs", {
   rowsWritten: integer("rows_written").notNull().default(0),
   errorMessage: text("error_message"),
 });
+
+// Raw GA4 page views by URL path. Not yet matched to specific listings —
+// that requires each listing to carry its real Wix page URL, which isn't
+// captured yet. This table is the source of truth once that matching exists.
+export const pageViewsDaily = pgTable(
+  "page_views_daily",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    pagePath: text("page_path").notNull(),
+    day: date("day").notNull(),
+    views: integer("views").notNull().default(0),
+    sessions: integer("sessions").notNull().default(0),
+  },
+  (t) => ({
+    pathDayIdx: uniqueIndex("page_views_daily_path_day_idx").on(t.pagePath, t.day),
+  })
+);
