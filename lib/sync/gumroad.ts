@@ -50,17 +50,36 @@ async function fetchGumroadSales(pageKey?: string): Promise<{ sales: GumroadSale
 }
 
 export async function fetchGumroadProducts(): Promise<GumroadProduct[]> {
-  const res = await fetch(GUMROAD_PRODUCTS_URL, {
-    headers: { Authorization: `Bearer ${process.env.GUMROAD_ACCESS_TOKEN}` },
-  });
+  const all: GumroadProduct[] = [];
+  let pageKey: string | undefined;
+  let pageCount = 0;
+  const MAX_PAGES = 50;
 
-  const json = await res.json();
+  do {
+    pageCount++;
+    if (pageCount > MAX_PAGES) {
+      console.log(`Gumroad products fetch: hit MAX_PAGES (${MAX_PAGES}), stopping`);
+      break;
+    }
 
-  if (!res.ok || json.success === false) {
-    throw new Error(`Gumroad products fetch failed: ${res.status} ${json.message ?? ""}`);
-  }
+    const url = new URL(GUMROAD_PRODUCTS_URL);
+    if (pageKey) url.searchParams.set("page_key", pageKey);
 
-  return json.products ?? [];
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${process.env.GUMROAD_ACCESS_TOKEN}` },
+    });
+
+    const json = await res.json();
+
+    if (!res.ok || json.success === false) {
+      throw new Error(`Gumroad products fetch failed: ${res.status} ${json.message ?? ""}`);
+    }
+
+    all.push(...(json.products ?? []));
+    pageKey = json.next_page_key;
+  } while (pageKey);
+
+  return all;
 }
 
 async function upsertCustomer(
