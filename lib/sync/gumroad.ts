@@ -1,14 +1,7 @@
 import { db } from "@/db/client";
 import { orders, orderItems, customers, channels, syncRuns } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
-/**
- * Gumroad API v2 — GET /v2/sales
- * Auth: access token generated under Settings > Advanced > (application) > Edit.
- * Sent as a Bearer token in the Authorization header.
- * Docs confirm: cursor pagination via next_page_key, and success:false can
- * come back on a 200, so that field is checked explicitly below.
- */
 const GUMROAD_SALES_URL = "https://api.gumroad.com/v2/sales";
 
 type GumroadSale = {
@@ -17,8 +10,8 @@ type GumroadSale = {
   full_name?: string;
   product_name?: string;
   permalink?: string;
-  price: number; // cents
-  gumroad_fee?: number; // cents
+  price: number;
+  gumroad_fee?: number;
   currency?: string;
   quantity?: number;
   created_at: string;
@@ -45,16 +38,24 @@ async function fetchGumroadSales(pageKey?: string): Promise<{ sales: GumroadSale
   return { sales: json.sales ?? [], nextPageKey: json.next_page_key };
 }
 
-async function upsertCustomer(channelId: string, email?: string, name?: string, country?: string, orderedAt?: Date) {
+async function upsertCustomer(
+  channelId: string,
+  existingByEmail: Map<string, { id: string; orderCount: number }>,
+  email?: string,
+  name?: string,
+  country?: string,
+  orderedAt?: Date
+) {
   if (!email) return null;
 
-  const existing = await db.query.customers.findFirst({ where: eq(customers.email, email) });
+  const existing = existingByEmail.get(email);
 
   if (existing) {
     await db
       .update(customers)
       .set({ lastOrderAt: orderedAt, orderCount: existing.orderCount + 1 })
       .where(eq(customers.id, existing.id));
+    existingByEmail.set(email, { id: existing.id, orderCount: existing.orderCount + 1 });
     return existing.id;
   }
 
@@ -71,6 +72,7 @@ async function upsertCustomer(channelId: string, email?: string, name?: string, 
     })
     .returning({ id: customers.id });
 
+  existingByEmail.set(email, { id: created.id, orderCount: 1 });
   return created.id;
 }
 
@@ -84,6 +86,21 @@ export async function syncGumroadSales() {
     const channel = await db.query.channels.findFirst({ where: eq(channels.key, "gumroad") });
     if (!channel) throw new Error("No 'gumroad' row in channels table — seed it first.");
 
+    const existingOrders = await db
+      .select({ externalOrderId: orders.externalOrderId })
+      .from(orders)
+      .where(eq(orders.channelId, channel.id));
+    const seenOrderIds = new Set(existingOrders.map((o) => o.externalOrderId));
+
+    const existingCustomers = await db
+      .select({ id: customers.id, email: customers.email, orderCount: customers.orderCount })
+      .from(customers);
+    const customersByEmail = new Map(
+      existingCustomers
+        .filter((c): c is { id: string; email: string; orderCount: number } => !!c.email)
+        .map((c) => [c.email, { id: c.id, orderCount: c.orderCount }])
+    );
+
     let pageKey: string | undefined;
     let written = 0;
 
@@ -91,13 +108,8 @@ export async function syncGumroadSales() {
       const page = await fetchGumroadSales(pageKey);
 
       for (const s of page.sales) {
-        // Skip refunded/chargebacked sales — they're not real revenue.
         if (s.refunded || s.chargebacked) continue;
-
-        const existingOrder = await db.query.orders.findFirst({
-          where: and(eq(orders.channelId, channel.id), eq(orders.externalOrderId, s.id)),
-        });
-        if (existingOrder) continue;
+        if (seenOrderIds.has(s.id)) continue;
 
         const orderedAt = new Date(s.created_at);
         const grossCents = s.price ?? 0;
@@ -105,7 +117,14 @@ export async function syncGumroadSales() {
         const gross = grossCents / 100;
         const platformFee = feeCents / 100;
 
-        const customerId = await upsertCustomer(channel.id, s.email, s.full_name, s.country, orderedAt);
+        const customerId = await upsertCustomer(
+          channel.id,
+          customersByEmail,
+          s.email,
+          s.full_name,
+          s.country,
+          orderedAt
+        );
 
         const [insertedOrder] = await db
           .insert(orders)
@@ -117,12 +136,14 @@ export async function syncGumroadSales() {
             currency: (s.currency ?? "usd").toUpperCase(),
             gross: String(gross),
             platformFee: String(platformFee),
-            net: String(gross - platformFee), // processor fee applied in a later pass
+            net: String(gross - platformFee),
             buyerCountry: s.country,
             source: "api",
             rawPayload: JSON.stringify(s),
           })
           .returning({ id: orders.id });
+
+        seenOrderIds.add(s.id);
 
         await db.insert(orderItems).values({
           orderId: insertedOrder.id,
