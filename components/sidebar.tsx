@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { RefreshButton } from "./refresh-button";
 
 type NavLink = { href: string; label: string };
@@ -68,11 +68,12 @@ const ICONS = {
 
 const SECTIONS: NavSection[] = [
   {
-    label: "All Products",
+    label: "Catalog",
     icon: ICONS.folder,
     hubHref: "/listings",
     links: [
-      { href: "/listings", label: "Mockups" },
+      { href: "/listings", label: "All Products" },
+      { href: "/listings?kind=mockup", label: "Mockups" },
       { href: "/series", label: "Series" },
       { href: "/listings?kind=bundle", label: "Bundles" },
       { href: "/listings?category=visuals", label: "Visuals" },
@@ -147,11 +148,6 @@ const SECTIONS: NavSection[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-
-  function toggle(label: string) {
-    setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
-  }
 
   return (
     <div
@@ -208,65 +204,42 @@ export function Sidebar() {
         Dashboard
       </Link>
 
-      {SECTIONS.map((section) => {
-        const isCollapsed = collapsed[section.label];
-        return (
-          <div key={section.label} style={{ marginBottom: 18 }}>
-            <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-              <button
-                type="button"
-                onClick={() => toggle(section.label)}
-                aria-label={isCollapsed ? "Expand" : "Collapse"}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  padding: "6px 6px 6px 2px",
-                  cursor: "pointer",
-                  color: "var(--text-muted)",
-                  fontSize: 12,
-                }}
-              >
-                <span style={{ display: "inline-block", transform: isCollapsed ? "rotate(0deg)" : "rotate(90deg)", transition: "transform 0.15s" }}>
-                  ▸
-                </span>
-              </button>
+      {SECTIONS.map((section) => (
+        <div key={section.label} style={{ marginBottom: 18 }}>
+          <Link
+            href={section.hubHref}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              padding: "6px 6px",
+              color: "var(--text-primary)",
+              fontSize: 15,
+              textDecoration: "none",
+            }}
+          >
+            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>▸</span>
+            {section.icon}
+            {section.label}
+          </Link>
+          <div style={{ marginLeft: 42, marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
+            {section.links.map((l) => (
               <Link
-                href={section.hubHref}
+                key={l.href}
+                href={l.href}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  flex: 1,
-                  padding: "6px 6px 6px 0",
-                  color: "var(--text-primary)",
+                  color: "var(--text-secondary)",
                   fontSize: 15,
                   textDecoration: "none",
                 }}
               >
-                {section.icon}
-                {section.label}
+                {l.label}
               </Link>
-            </div>
-            {!isCollapsed && (
-              <div style={{ marginLeft: 42, marginTop: 6, display: "flex", flexDirection: "column", gap: 10 }}>
-                {section.links.map((l) => (
-                  <Link
-                    key={l.href}
-                    href={l.href}
-                    style={{
-                      color: "var(--text-secondary)",
-                      fontSize: 15,
-                      textDecoration: "none",
-                    }}
-                  >
-                    {l.label}
-                  </Link>
-                ))}
-              </div>
-            )}
+            ))}
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 }

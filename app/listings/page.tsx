@@ -57,7 +57,14 @@ async function getListings(params: {
           ? sql`and (select count(distinct c2.key) from listings l2 join channels c2 on l2.channel_id=c2.id where l2.product_id=p.id) >= 2`
           : sql``;
 
-  const kindFilter = kind === "single" || kind === "bundle" ? sql`and p.kind = ${kind}` : sql``;
+  const kindFilter =
+    kind === "bundle"
+      ? sql`and p.kind = 'bundle'`
+      : kind === "mockup"
+        ? sql`and p.kind = 'single' and not (p.object_noun ilike '%stock image%' or p.internal_name ilike '%stock image%' or p.internal_name ilike '%editorial%')`
+        : kind === "single"
+          ? sql`and p.kind = 'single'`
+          : sql``;
   const statusFilter = ["live", "draft", "retired", "archived"].includes(status) ? sql`and p.status = ${status}` : sql``;
   const categoryFilter = category === "visuals" ? VISUALS_FILTER : sql``;
   const searchFilter = q ? sql`and (p.internal_name ilike ${"%" + q + "%"} or s.name ilike ${"%" + q + "%"})` : sql``;
@@ -121,6 +128,7 @@ function buildQuery(overrides: Record<string, string | number>, current: Record<
 
 const PAGE_TITLES: Record<string, string> = {
   "kind=bundle": "Bundles",
+  "kind=mockup": "Mockups",
   "category=visuals": "Visuals",
   "status=retired": "Discontinued",
   "status=archived": "Archived",
@@ -155,7 +163,7 @@ export default async function ListingsPage({
   const currentParams = { q, channel, kind, status, category, sort, dir, page: String(page) };
 
   const pageTitle =
-    PAGE_TITLES[`kind=${kind}`] ?? PAGE_TITLES[`category=${category}`] ?? PAGE_TITLES[`status=${status}`] ?? "Listings";
+    PAGE_TITLES[`kind=${kind}`] ?? PAGE_TITLES[`category=${category}`] ?? PAGE_TITLES[`status=${status}`] ?? "All Products";
 
   function SortHeader({ label, sortKey, style }: { label: string; sortKey: SortKey; style?: React.CSSProperties }) {
     const isActive = sort === sortKey;
