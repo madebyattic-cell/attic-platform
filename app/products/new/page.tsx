@@ -58,11 +58,21 @@ export default async function NewProductPage() {
             <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
               Complexity band
             </label>
-            <select name="complexityBand" style={{ width: "100%" }} defaultValue="standard">
-              <option value="standard">Standard ($12 Wix)</option>
-              <option value="complex">Complex ($14 Wix)</option>
-              <option value="heavy">Heavy multi-object ($16 Wix)</option>
+            <select name="complexityBand" id="complexityBand" style={{ width: "100%" }} defaultValue="standard">
+              <option value="standard">Standard</option>
+              <option value="complex">Complex</option>
+              <option value="heavy">Heavy multi-object</option>
             </select>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
+              Cover image
+            </label>
+            <input name="coverImage" type="file" accept="image/*" />
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+              Crop to 2:3 before uploading — this is what shows in the listings table.
+            </div>
           </div>
 
           <div style={{ borderTop: "0.5px solid var(--border)", paddingTop: 18, marginTop: 4 }}>
@@ -72,22 +82,70 @@ export default async function NewProductPage() {
               to stop the auto-fill for that one.
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {allChannels.map((c) => (
-                <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 13, color: "var(--text-primary)", width: 130, flexShrink: 0 }}>
-                    {c.name}
+              {allChannels
+                .filter((c) => c.key !== "creative_market")
+                .map((c) => (
+                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 13, color: "var(--text-primary)", width: 130, flexShrink: 0 }}>
+                      {c.name}
+                    </span>
+                    <input
+                      id={`price_${c.key}`}
+                      name={`price_${c.key}`}
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      style={{ width: 120 }}
+                      data-user-edited="false"
+                    />
+                  </div>
+                ))}
+
+              {allChannels.some((c) => c.key === "creative_market") && (
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ fontSize: 13, color: "var(--text-primary)", width: 130, flexShrink: 0, paddingTop: 8 }}>
+                    Creative Market
                   </span>
-                  <input
-                    id={`price_${c.key}`}
-                    name={`price_${c.key}`}
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    style={{ width: 120 }}
-                    data-user-edited="false"
-                  />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        id="price_creative_market_personal"
+                        name="price_creative_market_personal"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        style={{ width: 120 }}
+                        data-user-edited="false"
+                      />
+                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Personal</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        id="price_creative_market_commercial"
+                        name="price_creative_market_commercial"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        style={{ width: 120 }}
+                        data-user-edited="false"
+                      />
+                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Commercial</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        id="price_creative_market_extended"
+                        name="price_creative_market_extended"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        style={{ width: 120 }}
+                        data-user-edited="false"
+                      />
+                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Extended</span>
+                    </div>
+                  </div>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
@@ -104,10 +162,18 @@ export default async function NewProductPage() {
             __html: `
               (function () {
                 var wixInput = document.getElementById('price_wix');
+                var bandSelect = document.getElementById('complexityBand');
                 if (!wixInput) return;
 
-                var others = ['gumroad', 'creative_market', 'behance']
-                  .map(function (key) { return document.getElementById('price_' + key); })
+                var otherIds = [
+                  'price_gumroad',
+                  'price_behance',
+                  'price_creative_market_personal',
+                  'price_creative_market_commercial',
+                  'price_creative_market_extended',
+                ];
+                var others = otherIds
+                  .map(function (id) { return document.getElementById(id); })
                   .filter(Boolean);
 
                 others.forEach(function (el) {
@@ -115,20 +181,49 @@ export default async function NewProductPage() {
                     el.setAttribute('data-user-edited', 'true');
                   });
                 });
-
-                var offsets = { gumroad: 2, creative_market: 3, behance: 7 };
-
                 wixInput.addEventListener('input', function () {
+                  wixInput.setAttribute('data-user-edited', 'true');
+                });
+
+                // Offsets from the standard band: Wix $12 / Gumroad $14 /
+                // Behance $19 / Creative Market $15 personal, $24 commercial,
+                // $60 extended. Applied as a flat offset from whatever Wix
+                // price is set — an approximation at higher bands, since the
+                // exact ladder above $12 hasn't been pinned down yet.
+                var offsets = {
+                  price_gumroad: 2,
+                  price_behance: 7,
+                  price_creative_market_personal: 3,
+                  price_creative_market_commercial: 12,
+                  price_creative_market_extended: 48,
+                };
+
+                function cascadeFromWix() {
                   var wixPrice = parseFloat(wixInput.value);
                   if (isNaN(wixPrice)) return;
 
                   others.forEach(function (el) {
                     if (el.getAttribute('data-user-edited') === 'true') return;
-                    var key = el.id.replace('price_', '');
-                    var offset = offsets[key] || 0;
+                    var offset = offsets[el.id] || 0;
                     el.value = (wixPrice + offset).toFixed(2);
                   });
-                });
+                }
+
+                wixInput.addEventListener('input', cascadeFromWix);
+
+                // Complexity band sets a default Wix price, which then
+                // cascades to everything else — so there's one source of
+                // truth instead of the band and the price disagreeing.
+                var bandDefaults = { standard: 12, complex: 14, heavy: 16 };
+                if (bandSelect) {
+                  bandSelect.addEventListener('change', function () {
+                    if (wixInput.getAttribute('data-user-edited') === 'true') return;
+                    var def = bandDefaults[bandSelect.value];
+                    if (def == null) return;
+                    wixInput.value = def.toFixed(2);
+                    cascadeFromWix();
+                  });
+                }
               })();
             `,
           }}
