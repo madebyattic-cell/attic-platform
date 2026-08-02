@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { RefreshButton } from "./refresh-button";
 
 type NavLink = { href: string; label: string };
-type NavSection = { label: string; icon: React.ReactNode; hubHref: string; links: NavLink[] };
+type NavSection = { label: string; icon: ReactNode; hubHref: string; links: NavLink[] };
 
-function Icon({ children }: { children: React.ReactNode }) {
+function Icon({ children }: { children: ReactNode }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} style={{ flexShrink: 0 }}>
       {children}
