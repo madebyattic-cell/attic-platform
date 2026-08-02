@@ -62,7 +62,12 @@ export default async function ListingsPage() {
           }}
         >
           <span style={{ fontSize: 15, color: "var(--text-primary)" }}>Listings</span>
-          <input placeholder="Search listings..." style={{ width: 200 }} />
+          <div style={{ display: "flex", gap: 10 }}>
+            <input placeholder="Search listings..." style={{ width: 200 }} />
+            <a href="/products/new">
+              <button type="button">Add product</button>
+            </a>
+          </div>
         </div>
 
         {rows.length === 0 ? (
