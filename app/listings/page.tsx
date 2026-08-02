@@ -9,13 +9,15 @@ export const dynamic = "force-dynamic";
 async function getListings() {
   const rows = await db
     .select({
-      id: listings.id,
+      listingId: listings.id,
       productId: products.id,
+      internalName: products.internalName,
       displayTitle: listings.displayTitle,
       price: listings.price,
       status: listings.status,
       seriesName: series.name,
-      seriesCode: series.code,
+      number: products.number,
+      channelKey: channels.key,
       channelName: channels.name,
       coverUrl: assets.url,
     })
@@ -24,7 +26,7 @@ async function getListings() {
     .leftJoin(series, eq(products.seriesId, series.id))
     .innerJoin(channels, eq(listings.channelId, channels.id))
     .leftJoin(assets, and(eq(assets.productId, products.id), eq(assets.kind, "cover")))
-    .orderBy(series.name, products.number, channels.name);
+    .orderBy(series.name, products.number);
 
   const revenueRows = await db
     .select({
@@ -40,11 +42,51 @@ async function getListings() {
     revenueRows.map((r) => [r.productId as string, { orders: r.orders, revenue: Number(r.revenue) }])
   );
 
-  return rows.map((row) => ({
-    ...row,
-    orders: revenueByProduct.get(row.productId)?.orders ?? 0,
-    revenue: revenueByProduct.get(row.productId)?.revenue ?? 0,
-  }));
+  // Group the per-channel rows into one row per product.
+  const byProduct = new Map<
+    string,
+    {
+      productId: string;
+      displayTitle: string;
+      seriesName: string | null;
+      number: number | null;
+      coverUrl: string | null;
+      channels: { key: string; name: string; price: string | null; status: string }[];
+      orders: number;
+      revenue: number;
+    }
+  >();
+
+  for (const row of rows) {
+    const existing = byProduct.get(row.productId);
+    const channelEntry = {
+      key: row.channelKey,
+      name: row.channelName,
+      price: row.price,
+      status: row.status,
+    };
+    if (existing) {
+      existing.channels.push(channelEntry);
+      if (!existing.coverUrl && row.coverUrl) existing.coverUrl = row.coverUrl;
+    } else {
+      byProduct.set(row.productId, {
+        productId: row.productId,
+        displayTitle: row.displayTitle ?? row.internalName,
+        seriesName: row.seriesName,
+        number: row.number,
+        coverUrl: row.coverUrl,
+        channels: [channelEntry],
+        orders: revenueByProduct.get(row.productId)?.orders ?? 0,
+        revenue: revenueByProduct.get(row.productId)?.revenue ?? 0,
+      });
+    }
+  }
+
+  return Array.from(byProduct.values()).sort((a, b) => {
+    const seriesCompare = (a.seriesName ?? "").localeCompare(b.seriesName ?? "");
+    if (seriesCompare !== 0) return seriesCompare;
+    return (a.number ?? 0) - (b.number ?? 0);
+  });
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -59,9 +101,9 @@ function StatusPill({ status }: { status: string }) {
       style={{
         background: s.bg,
         color: s.text,
-        fontSize: 11,
-        padding: "3px 10px",
-        borderRadius: 6,
+        fontSize: 10,
+        padding: "2px 8px",
+        borderRadius: 5,
       }}
     >
       {s.label}
@@ -69,7 +111,35 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-const GRID_COLUMNS = "2fr 1fr 0.8fr 0.7fr 0.6fr 0.6fr 0.8fr";
+const CHANNEL_COLORS: Record<string, string> = {
+  wix: "#3B7DD8",
+  gumroad: "#FF90E8",
+  creative_market: "#7C5CFC",
+  behance: "#053EFF",
+};
+
+function ChannelBadge({ name, channelKey, price }: { name: string; channelKey: string; price: string | null }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        fontSize: 11,
+        padding: "3px 8px",
+        borderRadius: 5,
+        background: "var(--surface-1)",
+        color: "var(--text-secondary)",
+        border: `1px solid ${CHANNEL_COLORS[channelKey] ?? "var(--border)"}`,
+      }}
+    >
+      {name}
+      {price ? ` · $${price}` : ""}
+    </span>
+  );
+}
+
+const GRID_COLUMNS = "2.2fr 1fr 1.6fr 0.6fr 0.8fr";
 
 export default async function ListingsPage() {
   const rows = await getListings();
@@ -118,15 +188,13 @@ export default async function ListingsPage() {
             >
               <div>Product</div>
               <div>Series</div>
-              <div>Channel</div>
-              <div>Status</div>
-              <div>Price</div>
+              <div>Channels</div>
               <div>Orders</div>
               <div>Revenue</div>
             </div>
             {rows.map((row) => (
               <Link
-                key={row.id}
+                key={row.productId}
                 href={`/products/${row.productId}`}
                 style={{ textDecoration: "none", color: "inherit", display: "block" }}
               >
@@ -166,20 +234,16 @@ export default async function ListingsPage() {
                       />
                     )}
                     <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                      {row.displayTitle ?? "Untitled listing"}
+                      {row.displayTitle}
                     </span>
                   </div>
                   <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
                     {row.seriesName ?? "—"}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                    {row.channelName}
-                  </div>
-                  <div>
-                    <StatusPill status={row.status} />
-                  </div>
-                  <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                    {row.price ? `$${row.price}` : "—"}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {row.channels.map((c, i) => (
+                      <ChannelBadge key={i} name={c.name} channelKey={c.key} price={c.price} />
+                    ))}
                   </div>
                   <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
                     {row.orders || "—"}
