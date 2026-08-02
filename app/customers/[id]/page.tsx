@@ -38,6 +38,7 @@ async function getOrdersForCustomer(customerId: string) {
     .select({
       orderId: orders.id,
       externalOrderId: orders.externalOrderId,
+      orderNumber: orders.orderNumber,
       orderedAt: orders.orderedAt,
       channelName: channels.name,
       gross: orders.gross,
@@ -147,7 +148,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                   >
                     <div>{formatDate(r.orderedAt)}</div>
                     <div style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.externalOrderId ?? undefined}>
-                      {r.externalOrderId ?? "—"}
+                      {r.orderNumber ? `#${r.orderNumber}` : (r.externalOrderId ?? "—")}
                     </div>
                     <div style={{ color: r.productId ? "var(--text-primary)" : "var(--text-secondary)" }}>
                       {productLabel}

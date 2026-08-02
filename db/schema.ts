@@ -156,6 +156,7 @@ export const orders = pgTable(
     channelId: uuid("channel_id").notNull().references(() => channels.id, { onDelete: "restrict" }),
     customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
     externalOrderId: text("external_order_id"),
+    orderNumber: text("order_number"),
     orderedAt: timestamp("ordered_at", { withTimezone: true }).notNull(),
     currency: text("currency").notNull().default("USD"),
     gross: numeric("gross", { precision: 12, scale: 2 }).notNull(),

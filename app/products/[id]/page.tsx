@@ -29,6 +29,7 @@ async function getOrdersForProduct(productId: string) {
       quantity: orderItems.quantity,
       orderedAt: orders.orderedAt,
       externalOrderId: orders.externalOrderId,
+      orderNumber: orders.orderNumber,
       channelId: orders.channelId,
       channelName: channels.name,
       buyerCountry: orders.buyerCountry,
@@ -186,7 +187,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 >
                   <div>{new Date(o.orderedAt).toLocaleDateString()}</div>
                   <div style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={o.externalOrderId ?? undefined}>
-                    {o.externalOrderId ?? "—"}
+                    {o.orderNumber ? `#${o.orderNumber}` : (o.externalOrderId ?? "—")}
                   </div>
                   <div>{o.channelName}</div>
                   <div>{o.quantity}</div>
