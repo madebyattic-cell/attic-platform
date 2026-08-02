@@ -15,12 +15,18 @@ async function safeRun<T>(name: string, fn: () => Promise<T>) {
   }
 }
 
+function recentDate(daysAgo: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().slice(0, 10);
+}
+
 export async function POST() {
   const [wix, gumroad, ga4, gsc] = await Promise.all([
     safeRun("wix_orders", syncWixOrders),
     safeRun("gumroad_sales", syncGumroadSales),
     safeRun("ga4", syncGa4PageViews),
-    safeRun("gsc", syncSearchConsole),
+    safeRun("gsc", () => syncSearchConsole(recentDate(14))),
   ]);
 
   const results = { wix_orders: wix, gumroad_sales: gumroad, ga4, gsc };

@@ -30,7 +30,7 @@ type GscRow = {
   position: number;
 };
 
-async function fetchSearchAnalytics(accessToken: string): Promise<GscRow[]> {
+async function fetchSearchAnalytics(accessToken: string, startDate: string): Promise<GscRow[]> {
   const allRows: GscRow[] = [];
   let startRow = 0;
   const rowLimit = 25000;
@@ -43,7 +43,7 @@ async function fetchSearchAnalytics(accessToken: string): Promise<GscRow[]> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        startDate: "2024-01-01",
+        startDate: startDate,
         endDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
         dimensions: ["page", "date"],
         rowLimit,
@@ -67,7 +67,7 @@ async function fetchSearchAnalytics(accessToken: string): Promise<GscRow[]> {
   return allRows;
 }
 
-export async function syncSearchConsole() {
+export async function syncSearchConsole(startDate: string = "2024-01-01") {
   const [run] = await db
     .insert(syncRuns)
     .values({ connector: "gsc", status: "running" })
@@ -80,7 +80,7 @@ export async function syncSearchConsole() {
     const accessToken = accessTokenResponse.token;
     if (!accessToken) throw new Error("Failed to obtain access token for Search Console.");
 
-    const rows = await fetchSearchAnalytics(accessToken);
+    const rows = await fetchSearchAnalytics(accessToken, startDate);
 
     const channel = await db.query.channels.findFirst({ where: eq(channels.key, "wix") });
     if (!channel) throw new Error("No 'wix' row in channels table.");
