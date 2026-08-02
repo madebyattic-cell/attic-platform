@@ -116,7 +116,7 @@ export async function syncWixOrders() {
     let cursor: string | undefined;
     let written = 0;
     let pageCount = 0;
-    const MAX_PAGES = 20;
+    const MAX_PAGES = 50;
 
     do {
       pageCount++;
