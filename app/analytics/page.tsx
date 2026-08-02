@@ -11,6 +11,9 @@ type Row = {
   series_name: string | null;
   views: number;
   sessions: number;
+  impressions: number;
+  clicks: number;
+  avg_position: string | null;
   order_count: number;
   gross: string;
 };
@@ -23,6 +26,12 @@ async function getProductViews() {
       s.name as series_name,
       coalesce(sum(pv.views), 0)::int as views,
       coalesce(sum(pv.sessions), 0)::int as sessions,
+      coalesce(sum(gsc.impressions), 0)::int as impressions,
+      coalesce(sum(gsc.clicks), 0)::int as clicks,
+      case when count(gsc.avg_position) > 0
+        then round(avg(gsc.avg_position), 1)::text
+        else null
+      end as avg_position,
       count(distinct oi.id)::int as order_count,
       coalesce(sum(oi.gross), 0)::text as gross
     from listings l
@@ -30,6 +39,7 @@ async function getProductViews() {
     join products p on l.product_id = p.id
     left join series s on p.series_id = s.id
     left join page_views_daily pv on pv.page_path = regexp_replace(l.url, '^https?://[^/]+', '')
+    left join metrics_daily gsc on gsc.listing_id = l.id and gsc.source = 'gsc'
     left join order_items oi on oi.product_id = p.id
     where l.url is not null
     group by l.product_id, p.internal_name, s.name
@@ -52,14 +62,13 @@ export default async function AnalyticsPage() {
       ? withViews.reduce((sum, r) => sum + (r.order_count / Math.max(r.views, 1)) * 100, 0) / withViews.length
       : 0;
 
-  // High views, low sales: views comfortably above average but conversion
-  // well below the shop's own average — this is the Éclat-03 pattern,
-  // now surfaced automatically instead of found by hand.
   const needsAttention = withViews
     .map((r) => ({ ...r, conversion: (r.order_count / Math.max(r.views, 1)) * 100 }))
     .filter((r) => r.views >= 10 && r.conversion < avgConversion * 0.5)
     .sort((a, b) => b.views - a.views)
     .slice(0, 10);
+
+  const GRID = "1.8fr 0.9fr 0.6fr 0.7fr 0.6fr 0.6fr 0.6fr 0.7fr 0.8fr";
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--surface-0)" }}>
@@ -70,7 +79,8 @@ export default async function AnalyticsPage() {
             Analytics
           </h1>
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-            GA4 page views matched to real products · {withViews.length} products with traffic
+            GA4 page views + Search Console clicks and rankings, matched to real products ·{" "}
+            {withViews.length} products with GA4 traffic
           </p>
         </div>
 
@@ -79,22 +89,26 @@ export default async function AnalyticsPage() {
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>
               Needs attention — high views, low conversion
             </div>
-            <div style={{ background: "var(--bg-warning)", border: "0.5px solid var(--border)", borderRadius: 10 }}>
+            <div style={{ background: "var(--bg-warning)", border: "0.5px solid var(--border)", borderRadius: 10, overflowX: "auto" }}>
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "2fr 1fr 0.7fr 0.7fr 0.8fr 0.8fr",
+                  gridTemplateColumns: GRID,
                   padding: "10px 16px",
                   fontSize: 11,
                   color: "var(--text-muted)",
                   borderBottom: "0.5px solid var(--border)",
+                  minWidth: 900,
                 }}
               >
                 <div>Product</div>
                 <div>Series</div>
                 <div>Views</div>
+                <div>Impr.</div>
+                <div>Clicks</div>
+                <div>Pos.</div>
                 <div>Orders</div>
-                <div>Conversion</div>
+                <div>Conv.</div>
                 <div>Revenue</div>
               </div>
               {needsAttention.map((row, i) => (
@@ -106,16 +120,20 @@ export default async function AnalyticsPage() {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "2fr 1fr 0.7fr 0.7fr 0.8fr 0.8fr",
+                      gridTemplateColumns: GRID,
                       alignItems: "center",
                       padding: "10px 16px",
                       borderBottom: i < needsAttention.length - 1 ? "0.5px solid var(--border)" : "none",
-                      fontSize: 13,
+                      fontSize: 12,
+                      minWidth: 900,
                     }}
                   >
                     <div style={{ color: "var(--text-primary)" }}>{row.name}</div>
                     <div style={{ color: "var(--text-secondary)" }}>{row.series_name ?? "—"}</div>
                     <div style={{ color: "var(--text-secondary)" }}>{row.views}</div>
+                    <div style={{ color: "var(--text-secondary)" }}>{row.impressions || "—"}</div>
+                    <div style={{ color: "var(--text-secondary)" }}>{row.clicks || "—"}</div>
+                    <div style={{ color: "var(--text-secondary)" }}>{row.avg_position ?? "—"}</div>
                     <div style={{ color: "var(--text-secondary)" }}>{row.order_count}</div>
                     <div style={{ color: "var(--text-warning)" }}>{row.conversion.toFixed(1)}%</div>
                     <div style={{ color: "var(--text-primary)" }}>{formatMoney(row.gross)}</div>
@@ -129,22 +147,26 @@ export default async function AnalyticsPage() {
         <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>
           All products by views · shop average conversion {avgConversion.toFixed(1)}%
         </div>
-        <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 10 }}>
+        <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 10, overflowX: "auto" }}>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "2fr 1fr 0.7fr 0.7fr 0.8fr 0.8fr",
+              gridTemplateColumns: GRID,
               padding: "10px 16px",
               fontSize: 11,
               color: "var(--text-muted)",
               borderBottom: "0.5px solid var(--border)",
+              minWidth: 900,
             }}
           >
             <div>Product</div>
             <div>Series</div>
             <div>Views</div>
+            <div>Impr.</div>
+            <div>Clicks</div>
+            <div>Pos.</div>
             <div>Orders</div>
-            <div>Conversion</div>
+            <div>Conv.</div>
             <div>Revenue</div>
           </div>
           {rows.length === 0 ? (
@@ -163,16 +185,20 @@ export default async function AnalyticsPage() {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "2fr 1fr 0.7fr 0.7fr 0.8fr 0.8fr",
+                      gridTemplateColumns: GRID,
                       alignItems: "center",
                       padding: "10px 16px",
                       borderBottom: i < rows.length - 1 ? "0.5px solid var(--border)" : "none",
-                      fontSize: 13,
+                      fontSize: 12,
+                      minWidth: 900,
                     }}
                   >
                     <div style={{ color: "var(--text-primary)" }}>{row.name}</div>
                     <div style={{ color: "var(--text-secondary)" }}>{row.series_name ?? "—"}</div>
                     <div style={{ color: "var(--text-secondary)" }}>{row.views}</div>
+                    <div style={{ color: "var(--text-secondary)" }}>{row.impressions || "—"}</div>
+                    <div style={{ color: "var(--text-secondary)" }}>{row.clicks || "—"}</div>
+                    <div style={{ color: "var(--text-secondary)" }}>{row.avg_position ?? "—"}</div>
                     <div style={{ color: "var(--text-secondary)" }}>{row.order_count}</div>
                     <div style={{ color: "var(--text-secondary)" }}>
                       {conversion != null ? `${conversion.toFixed(1)}%` : "—"}
