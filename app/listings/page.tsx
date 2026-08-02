@@ -1,6 +1,6 @@
 import { db } from "@/db/client";
-import { listings, products, series, channels } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { listings, products, series, channels, assets } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
 
 export const dynamic = "force-dynamic";
@@ -15,11 +15,13 @@ async function getListings() {
       seriesName: series.name,
       seriesCode: series.code,
       channelName: channels.name,
+      coverUrl: assets.url,
     })
     .from(listings)
     .innerJoin(products, eq(listings.productId, products.id))
     .leftJoin(series, eq(products.seriesId, series.id))
     .innerJoin(channels, eq(listings.channelId, channels.id))
+    .leftJoin(assets, and(eq(assets.productId, products.id), eq(assets.kind, "cover")))
     .limit(50);
 }
 
@@ -106,15 +108,30 @@ export default async function ListingsPage() {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 8,
-                      background: "linear-gradient(135deg, #C1653B, #A8522E)",
-                      flexShrink: 0,
-                    }}
-                  />
+                  {row.coverUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={row.coverUrl}
+                      alt=""
+                      style={{
+                        width: 32,
+                        height: 48,
+                        borderRadius: 6,
+                        objectFit: "cover",
+                        flexShrink: 0,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: 32,
+                        height: 48,
+                        borderRadius: 6,
+                        background: "linear-gradient(135deg, #C1653B, #A8522E)",
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
                   <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
                     {row.displayTitle ?? "Untitled listing"}
                   </span>

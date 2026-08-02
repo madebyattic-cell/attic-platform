@@ -1,9 +1,10 @@
 "use server";
 
 import { db } from "@/db/client";
-import { series, products, listings, channels } from "@/db/schema";
+import { series, products, listings, channels, assets } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { put } from "@vercel/blob";
 
 export async function createProduct(formData: FormData) {
   const seriesName = String(formData.get("seriesName") ?? "").trim();
@@ -42,8 +43,45 @@ export async function createProduct(formData: FormData) {
     })
     .returning({ id: products.id });
 
+  const coverImage = formData.get("coverImage");
+  if (coverImage instanceof File && coverImage.size > 0) {
+    const blob = await put(`covers/${product.id}-${coverImage.name}`, coverImage, {
+      access: "public",
+      addRandomSuffix: true,
+    });
+
+    await db.insert(assets).values({
+      productId: product.id,
+      kind: "cover",
+      url: blob.url,
+      sortOrder: 0,
+    });
+  }
+
   const allChannels = await db.select().from(channels);
   for (const channel of allChannels) {
+    if (channel.key === "creative_market") {
+      const tiers: Array<{ tier: "personal" | "commercial" | "extended"; field: string }> = [
+        { tier: "personal", field: "price_creative_market_personal" },
+        { tier: "commercial", field: "price_creative_market_commercial" },
+        { tier: "extended", field: "price_creative_market_extended" },
+      ];
+      for (const { tier, field } of tiers) {
+        const priceRaw = formData.get(field);
+        if (!priceRaw || priceRaw === "") continue;
+
+        await db.insert(listings).values({
+          productId: product.id,
+          channelId: channel.id,
+          licenseTier: tier,
+          displayTitle: internalName,
+          price: String(priceRaw),
+          status: "draft",
+        });
+      }
+      continue;
+    }
+
     const priceRaw = formData.get(`price_${channel.key}`);
     if (!priceRaw || priceRaw === "") continue;
 
