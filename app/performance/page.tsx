@@ -12,23 +12,37 @@ type Row = {
   kind: string;
   order_count: number;
   gross: string;
+  first_known_live: string | null;
 };
 
 async function getPerformance() {
   const result = await db.execute<Row>(sql`
+    with orders_agg as (
+      select product_id, count(*)::int as order_count, coalesce(sum(gross), 0)::text as gross
+      from order_items
+      where product_id is not null
+      group by product_id
+    ),
+    earliest_listing as (
+      select product_id, min(published_at) as first_known_live
+      from listings
+      where published_at is not null
+      group by product_id
+    )
     select
       p.id as product_id,
       p.internal_name as name,
       s.name as series_name,
       p.kind as kind,
-      count(oi.id)::int as order_count,
-      coalesce(sum(oi.gross), 0)::text as gross
+      coalesce(oa.order_count, 0) as order_count,
+      coalesce(oa.gross, '0') as gross,
+      el.first_known_live::text as first_known_live
     from products p
     left join series s on p.series_id = s.id
-    left join order_items oi on oi.product_id = p.id
+    left join orders_agg oa on oa.product_id = p.id
+    left join earliest_listing el on el.product_id = p.id
     where p.status = 'live'
-    group by p.id, p.internal_name, s.name, p.kind
-    order by sum(oi.gross) desc nulls last
+    order by coalesce(oa.gross::numeric, 0) desc
   `);
   return result.rows;
 }
@@ -41,10 +55,21 @@ function formatMoney(value: string | number) {
 export default async function PerformancePage() {
   const rows = await getPerformance();
 
-  // Percentile rank by revenue among products with at least one sale —
-  // more robust than min/max scaling since a couple of huge free-magnet
-  // outliers won't compress everyone else toward zero.
-  const withSales = rows.filter((r) => Number(r.gross) > 0 || r.order_count > 0);
+  const withScores = rows.map((r) => {
+    const gross = Number(r.gross);
+    let daysSinceLaunch: number | null = null;
+    let revenuePerDay: number | null = null;
+    if (r.first_known_live) {
+      daysSinceLaunch = Math.max(
+        1,
+        Math.round((Date.now() - new Date(r.first_known_live).getTime()) / (1000 * 60 * 60 * 24))
+      );
+      revenuePerDay = gross / daysSinceLaunch;
+    }
+    return { ...r, daysSinceLaunch, revenuePerDay };
+  });
+
+  const withSales = withScores.filter((r) => Number(r.gross) > 0 || r.order_count > 0);
   const sortedGross = [...withSales].map((r) => Number(r.gross)).sort((a, b) => a - b);
 
   function percentileScore(gross: number): number {
@@ -56,6 +81,10 @@ export default async function PerformancePage() {
     return Math.round((count / sortedGross.length) * 100);
   }
 
+  // Age-adjusted ranking, only among the products where we actually know
+  // a real launch date — no fabricated dates mixed in.
+  const withKnownAge = withScores.filter((r) => r.revenuePerDay != null).sort((a, b) => b.revenuePerDay! - a.revenuePerDay!);
+
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--surface-0)" }}>
       <Sidebar />
@@ -65,10 +94,65 @@ export default async function PerformancePage() {
             Performance
           </h1>
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-            {rows.length} live products, ranked by revenue
+            {rows.length} live products
           </p>
         </div>
 
+        {withKnownAge.length > 0 && (
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ fontSize: 13, color: "var(--text-primary)", marginBottom: 2 }}>
+              Age-adjusted — revenue per day since launch ({withKnownAge.length} products with a known launch date)
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10 }}>
+              Fairer than raw revenue when comparing an 18-month-old product to a 2-month-old one. Only shown for
+              products with real, evidence-backed launch dates — no estimates.
+            </div>
+            <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 10 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "2fr 1fr 0.9fr 0.9fr 1fr",
+                  padding: "10px 16px",
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  borderBottom: "0.5px solid var(--border)",
+                }}
+              >
+                <div>Product</div>
+                <div>Series</div>
+                <div>Days live</div>
+                <div>Revenue</div>
+                <div>Revenue/day</div>
+              </div>
+              {withKnownAge.slice(0, 20).map((row, i) => (
+                <Link
+                  key={row.product_id}
+                  href={`/products/${row.product_id}`}
+                  style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                >
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "2fr 1fr 0.9fr 0.9fr 1fr",
+                      alignItems: "center",
+                      padding: "10px 16px",
+                      borderBottom: i < Math.min(20, withKnownAge.length) - 1 ? "0.5px solid var(--border)" : "none",
+                      fontSize: 13,
+                    }}
+                  >
+                    <div style={{ color: "var(--text-primary)" }}>{row.name}</div>
+                    <div style={{ color: "var(--text-secondary)" }}>{row.series_name ?? "—"}</div>
+                    <div style={{ color: "var(--text-secondary)" }}>{row.daysSinceLaunch}</div>
+                    <div style={{ color: "var(--text-secondary)" }}>{formatMoney(row.gross)}</div>
+                    <div style={{ color: "var(--text-primary)" }}>{formatMoney(row.revenuePerDay!)}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ fontSize: 13, color: "var(--text-primary)", marginBottom: 2 }}>All live products, by total revenue</div>
         <div
           style={{
             background: "var(--surface-1)",
@@ -80,9 +164,7 @@ export default async function PerformancePage() {
             marginBottom: 20,
           }}
         >
-          Based on sales and revenue only. Page views aren't linked to individual listings yet, so this
-          doesn't show conversion rate or the Éclat-03-style "high views, low sales" pattern — that needs
-          GA4 page-view data matched to each product's real URL, which isn't wired up yet.
+          Based on sales and revenue only. Percentile is relative to your own catalog, not the outside market.
         </div>
 
         <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 10 }}>

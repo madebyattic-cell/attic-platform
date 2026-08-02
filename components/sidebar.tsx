@@ -6,7 +6,10 @@ const mainLinks = [
   { href: "/series", label: "Series", icon: "M4 6h16M4 12h16M4 18h7" },
   { href: "/performance", label: "Performance", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
   { href: "/customers", label: "Customers", icon: "M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4z" },
+  { href: "/segments", label: "Segments", icon: "M12 2l3 7h7l-5.5 4.5L18 21l-6-4.5L6 21l1.5-7.5L2 9h7z" },
   { href: "/analytics", label: "Analytics", icon: "M9 19V6l7 5-7 5z" },
+  { href: "/seo-diagnostics", label: "SEO Diagnostics", icon: "M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" },
+  { href: "/sync-health", label: "Sync Health", icon: "M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M4 4v5h5M20 20v-5h-5" },
   { href: "/products/new", label: "Add product", icon: "M12 4v16m8-8H4" },
 ];
 
