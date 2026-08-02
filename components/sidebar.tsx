@@ -6,12 +6,11 @@ const mainLinks = [
   { href: "/series", label: "Series", icon: "M4 6h16M4 12h16M4 18h7" },
   { href: "/performance", label: "Performance", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
   { href: "/customers", label: "Customers", icon: "M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4z" },
+  { href: "/analytics", label: "Analytics", icon: "M9 19V6l7 5-7 5z" },
   { href: "/products/new", label: "Add product", icon: "M12 4v16m8-8H4" },
 ];
 
-const comingSoonLinks = [
-  { href: "/analytics", label: "Analytics", icon: "M9 19V6l7 5-7 5z" },
-];
+const comingSoonLinks: typeof mainLinks = [];
 
 const reconcileLinks = [
   { href: "/reconcile/gumroad", label: "Gumroad matches" },
