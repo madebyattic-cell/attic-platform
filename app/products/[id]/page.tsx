@@ -6,14 +6,6 @@ import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-async function getProduct(id: string) {
-  const product = await db.query.products.findFirst({
-    where: eq(products.id, id),
-    with: { series: true } as any,
-  });
-  return product;
-}
-
 async function getListingsForProduct(productId: string) {
   return db
     .select({
@@ -36,6 +28,7 @@ async function getOrdersForProduct(productId: string) {
       gross: orderItems.gross,
       quantity: orderItems.quantity,
       orderedAt: orders.orderedAt,
+      externalOrderId: orders.externalOrderId,
       channelId: orders.channelId,
       channelName: channels.name,
       buyerCountry: orders.buyerCountry,
@@ -75,7 +68,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--surface-0)" }}>
       <Sidebar />
-      <div style={{ flex: 1, maxWidth: 900 }}>
+      <div style={{ flex: 1, maxWidth: 960 }}>
         <div style={{ padding: "16px 24px", borderBottom: "0.5px solid var(--border)" }}>
           <a href="/listings" style={{ fontSize: 12, color: "var(--text-muted)" }}>
             ← Back to listings
@@ -165,7 +158,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1.2fr 1fr 0.8fr 0.6fr 1fr",
+                  gridTemplateColumns: "1fr 1.3fr 1fr 0.8fr 0.6fr 1fr",
                   fontSize: 11,
                   color: "var(--text-muted)",
                   padding: "6px 0",
@@ -173,6 +166,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 }}
               >
                 <div>Date</div>
+                <div>Order #</div>
                 <div>Channel</div>
                 <div>Qty</div>
                 <div>Gross</div>
@@ -183,7 +177,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   key={o.itemId}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1.2fr 1fr 0.8fr 0.6fr 1fr",
+                    gridTemplateColumns: "1fr 1.3fr 1fr 0.8fr 0.6fr 1fr",
                     fontSize: 13,
                     padding: "6px 0",
                     borderBottom: "0.5px solid var(--border)",
@@ -191,6 +185,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   }}
                 >
                   <div>{new Date(o.orderedAt).toLocaleDateString()}</div>
+                  <div style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={o.externalOrderId ?? undefined}>
+                    {o.externalOrderId ?? "—"}
+                  </div>
                   <div>{o.channelName}</div>
                   <div>{o.quantity}</div>
                   <div>${Number(o.gross).toFixed(2)}</div>

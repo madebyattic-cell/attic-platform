@@ -37,6 +37,7 @@ async function getOrdersForCustomer(customerId: string) {
   return db
     .select({
       orderId: orders.id,
+      externalOrderId: orders.externalOrderId,
       orderedAt: orders.orderedAt,
       channelName: channels.name,
       gross: orders.gross,
@@ -79,7 +80,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--surface-0)" }}>
       <Sidebar />
-      <div style={{ flex: 1, maxWidth: 900, padding: "0 0 40px" }}>
+      <div style={{ flex: 1, maxWidth: 960, padding: "0 0 40px" }}>
         <div style={{ padding: "16px 24px", borderBottom: "0.5px solid var(--border)" }}>
           <Link href="/customers" style={{ fontSize: 12, color: "var(--text-muted)" }}>
             ← Back to customers
@@ -118,7 +119,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 2fr 0.8fr 0.7fr",
+                  gridTemplateColumns: "0.9fr 1.2fr 1.6fr 0.8fr 0.7fr",
                   fontSize: 11,
                   color: "var(--text-muted)",
                   padding: "6px 0",
@@ -126,6 +127,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                 }}
               >
                 <div>Date</div>
+                <div>Order #</div>
                 <div>Product</div>
                 <div>Channel</div>
                 <div>Gross</div>
@@ -136,7 +138,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr 2fr 0.8fr 0.7fr",
+                      gridTemplateColumns: "0.9fr 1.2fr 1.6fr 0.8fr 0.7fr",
                       fontSize: 13,
                       padding: "6px 0",
                       borderBottom: "0.5px solid var(--border)",
@@ -144,6 +146,9 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                     }}
                   >
                     <div>{formatDate(r.orderedAt)}</div>
+                    <div style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.externalOrderId ?? undefined}>
+                      {r.externalOrderId ?? "—"}
+                    </div>
                     <div style={{ color: r.productId ? "var(--text-primary)" : "var(--text-secondary)" }}>
                       {productLabel}
                     </div>
