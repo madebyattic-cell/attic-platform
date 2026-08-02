@@ -9,8 +9,19 @@ const OLD_VIEWS_PROPERTY_ID = "467411171";
 const FREE_CODE_MAP: Record<string, string> = {
   "001": "alchemy 11 : The Urban Canvas Mockup",
   "002": "sienna 11 : The Boutique Entrance Mockup",
+  "003": "neutrals 11 : fluted table macbook mockup",
   "004": "greenscape 11 : city light poster mockup",
   "005": "zephyr 01 : The Grounded Tote Bag Mockup",
+};
+
+// Confirmed directly by the shop owner — descriptive Alchemy pages with no
+// number in the URL, matched by hand rather than guessed by the scorer.
+const EXPLICIT_PATH_MAP: Record<string, string> = {
+  "the-alchemy-shop-exterior": "the-alchemy 06 : artisan storefront mockup",
+  "the-alchemy-shop-window": "the-alchemy 07 : wellness window mockup",
+  "the-alchemy-shopping-bag": "the-alchemy 08 : luxe carry bag mockup",
+  "the-alchemy-thank-you-card": "the-alchemy 09 : terracotta card mockup",
+  "the-alchemy-mackbook-pro": "the-alchemy 10 : terracotta macbook mockup",
 };
 
 const STOPWORDS = new Set(["mockup", "mockups", "the", "a", "an", "on", "of", "for", "with", "and"]);
@@ -93,6 +104,18 @@ export async function matchHostingerHistory() {
     const path = rawPath.replace(/^\//, "").replace(/\/$/, "");
 
     if (path === "" || ["all-mockups", "mockup-collection", "checkout"].includes(path)) continue;
+
+    // Explicit human-confirmed mappings take priority over any guessing.
+    if (EXPLICIT_PATH_MAP[path]) {
+      const internalName = EXPLICIT_PATH_MAP[path];
+      const productId = productByInternalName.get(internalName);
+      if (productId) {
+        matched.push({ path: rawPath, date, productId, productName: internalName });
+      } else {
+        ambiguous.push({ path: rawPath, date, reason: `explicit mapping points to "${internalName}" but no such product exists` });
+      }
+      continue;
+    }
 
     // Free-product codes, matched by the confirmed map from tonight's order work.
     const freeMatch = path.match(/^free-(\d{3})-/);
