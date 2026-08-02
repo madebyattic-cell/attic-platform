@@ -25,9 +25,9 @@ function matchScore(targetTokens: string[], candidateTokens: string[]): number {
 }
 
 const MATCH_THRESHOLD = 0.6;
+const CHUNK_SIZE = 200;
 
 export async function backfillOrderAttribution() {
-  // All listings, grouped by channel, with pre-tokenized titles.
   const allListings = await db
     .select({
       id: listings.id,
@@ -48,7 +48,6 @@ export async function backfillOrderAttribution() {
     listingsByChannel.set(l.channelId, arr);
   }
 
-  // Unmatched order items, joined to their order's channel.
   const unmatchedItems = await db
     .select({
       itemId: orderItems.id,
@@ -59,11 +58,13 @@ export async function backfillOrderAttribution() {
     .innerJoin(orders, eq(orderItems.orderId, orders.id))
     .where(isNull(orderItems.productId));
 
-  let matched = 0;
   let skippedNoDescription = 0;
   let noCandidate = 0;
-  const belowThreshold: { itemId: string; description: string; bestScore: number; bestTitle: string | null }[] = [];
+  const toUpdate: { itemId: string; listingId: string; productId: string }[] = [];
+  const belowThreshold: { itemId: string; description: string; bestScore: number }[] = [];
 
+  // Pure in-memory matching — no DB calls in this loop, so it stays fast
+  // regardless of how many order items there are.
   for (const item of unmatchedItems) {
     if (!item.descriptionRaw) {
       skippedNoDescription++;
@@ -78,28 +79,42 @@ export async function backfillOrderAttribution() {
 
     const itemTokens = normalizeTokens(item.descriptionRaw);
 
-    let best: { id: string; productId: string; score: number; tokens: string[] } | null = null;
+    let best: { id: string; productId: string; score: number } | null = null;
     for (const c of candidates) {
       const score = matchScore(itemTokens, c.tokens);
       if (!best || score > best.score) {
-        best = { id: c.id, productId: c.productId, score, tokens: c.tokens };
+        best = { id: c.id, productId: c.productId, score };
       }
     }
 
     if (best && best.score >= MATCH_THRESHOLD) {
-      await db
-        .update(orderItems)
-        .set({ listingId: best.id, productId: best.productId })
-        .where(eq(orderItems.id, item.itemId));
-      matched++;
+      toUpdate.push({ itemId: item.itemId, listingId: best.id, productId: best.productId });
     } else {
       belowThreshold.push({
         itemId: item.itemId,
         description: item.descriptionRaw,
         bestScore: best?.score ?? 0,
-        bestTitle: null,
       });
     }
+  }
+
+  // Write results back in bulk chunks instead of one row at a time —
+  // this is what keeps thousands of rows well under the function timeout.
+  let matched = 0;
+  for (let i = 0; i < toUpdate.length; i += CHUNK_SIZE) {
+    const batch = toUpdate.slice(i, i + CHUNK_SIZE);
+    const values = batch.map(
+      (u) => sql`(${u.itemId}::uuid, ${u.listingId}::uuid, ${u.productId}::uuid)`
+    );
+
+    await db.execute(sql`
+      UPDATE order_items AS oi
+      SET listing_id = v.listing_id, product_id = v.product_id
+      FROM (VALUES ${sql.join(values, sql`, `)}) AS v(item_id, listing_id, product_id)
+      WHERE oi.id = v.item_id
+    `);
+
+    matched += batch.length;
   }
 
   return {
@@ -109,7 +124,6 @@ export async function backfillOrderAttribution() {
     skippedNoDescription,
     noCandidate,
     stillUnmatchedCount: belowThreshold.length,
-    // Cap the returned list so the response stays a sane size; the count above is the real total.
     stillUnmatchedSample: belowThreshold.slice(0, 50),
   };
 }
