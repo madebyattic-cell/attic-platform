@@ -1,6 +1,7 @@
 import { db } from "@/db/client";
 import { metricsDaily, listings, channels, syncRuns } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { sql as sqlRaw } from "drizzle-orm";
 import { GoogleAuth } from "google-auth-library";
 
 // Set this once you've confirmed the property type in step 1 —
@@ -100,6 +101,7 @@ export async function syncSearchConsole() {
 
     let written = 0;
     let skippedNoMatch = 0;
+    const toUpsert: { listingId: string; day: string; clicks: number; impressions: number; avgPosition: string }[] = [];
 
     for (const row of rows) {
       const [pageUrl, day] = row.keys;
@@ -111,31 +113,34 @@ export async function syncSearchConsole() {
         continue;
       }
 
-      const existing = await db.query.metricsDaily.findFirst({
-        where: and(
-          eq(metricsDaily.listingId, listingId),
-          eq(metricsDaily.day, day),
-          eq(metricsDaily.source, "gsc")
-        ),
-      });
-
-      const values = {
+      toUpsert.push({
+        listingId,
+        day,
         clicks: Math.round(row.clicks),
         impressions: Math.round(row.impressions),
         avgPosition: String(row.position),
-      };
+      });
+    }
 
-      if (existing) {
-        await db.update(metricsDaily).set(values).where(eq(metricsDaily.id, existing.id));
-      } else {
-        await db.insert(metricsDaily).values({
-          listingId,
-          day,
-          source: "gsc",
-          ...values,
-        });
-      }
-      written++;
+    const CHUNK_SIZE = 200;
+    for (let i = 0; i < toUpsert.length; i += CHUNK_SIZE) {
+      const batch = toUpsert.slice(i, i + CHUNK_SIZE);
+      const values = batch.map(
+        (r) =>
+          sqlRaw`(${r.listingId}::uuid, ${r.day}::date, 'gsc', ${r.clicks}::int, ${r.impressions}::int, ${r.avgPosition}::numeric)`
+      );
+
+      await db.execute(sqlRaw`
+        INSERT INTO metrics_daily (listing_id, day, source, clicks, impressions, avg_position)
+        VALUES ${sqlRaw.join(values, sqlRaw`, `)}
+        ON CONFLICT (listing_id, day, source)
+        DO UPDATE SET
+          clicks = excluded.clicks,
+          impressions = excluded.impressions,
+          avg_position = excluded.avg_position
+      `);
+
+      written += batch.length;
     }
 
     await db
