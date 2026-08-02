@@ -20,30 +20,50 @@ type Row = {
 
 async function getProductViews() {
   const result = await db.execute<Row>(sql`
+    with views_agg as (
+      select l.product_id as product_id,
+             coalesce(sum(pv.views), 0)::int as views,
+             coalesce(sum(pv.sessions), 0)::int as sessions
+      from listings l
+      join channels c on l.channel_id = c.id and c.key = 'wix'
+      left join page_views_daily pv on pv.page_path = regexp_replace(l.url, '^https?://[^/]+', '')
+      where l.url is not null
+      group by l.product_id
+    ),
+    gsc_agg as (
+      select l.product_id as product_id,
+             coalesce(sum(gsc.clicks), 0)::int as clicks,
+             coalesce(sum(gsc.impressions), 0)::int as impressions,
+             case when count(gsc.avg_position) > 0 then round(avg(gsc.avg_position), 1)::text else null end as avg_position
+      from listings l
+      join channels c on l.channel_id = c.id and c.key = 'wix'
+      left join metrics_daily gsc on gsc.listing_id = l.id and gsc.source = 'gsc'
+      where l.url is not null
+      group by l.product_id
+    ),
+    orders_agg as (
+      select product_id, count(*)::int as order_count, coalesce(sum(gross), 0)::text as gross
+      from order_items
+      where product_id is not null
+      group by product_id
+    )
     select
-      l.product_id as product_id,
+      p.id as product_id,
       p.internal_name as name,
       s.name as series_name,
-      coalesce(sum(pv.views), 0)::int as views,
-      coalesce(sum(pv.sessions), 0)::int as sessions,
-      coalesce(sum(gsc.impressions), 0)::int as impressions,
-      coalesce(sum(gsc.clicks), 0)::int as clicks,
-      case when count(gsc.avg_position) > 0
-        then round(avg(gsc.avg_position), 1)::text
-        else null
-      end as avg_position,
-      count(distinct oi.id)::int as order_count,
-      coalesce(sum(oi.gross), 0)::text as gross
-    from listings l
-    join channels c on l.channel_id = c.id and c.key = 'wix'
-    join products p on l.product_id = p.id
+      coalesce(va.views, 0) as views,
+      coalesce(va.sessions, 0) as sessions,
+      coalesce(gsc.impressions, 0) as impressions,
+      coalesce(gsc.clicks, 0) as clicks,
+      gsc.avg_position as avg_position,
+      coalesce(oa.order_count, 0) as order_count,
+      coalesce(oa.gross, '0') as gross
+    from products p
     left join series s on p.series_id = s.id
-    left join page_views_daily pv on pv.page_path = regexp_replace(l.url, '^https?://[^/]+', '')
-    left join metrics_daily gsc on gsc.listing_id = l.id and gsc.source = 'gsc'
-    left join order_items oi on oi.product_id = p.id
-    where l.url is not null
-    group by l.product_id, p.internal_name, s.name
-    order by sum(pv.views) desc nulls last
+    join views_agg va on va.product_id = p.id
+    left join gsc_agg gsc on gsc.product_id = p.id
+    left join orders_agg oa on oa.product_id = p.id
+    order by va.views desc
   `);
   return result.rows;
 }
