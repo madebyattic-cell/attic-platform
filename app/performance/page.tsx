@@ -52,8 +52,22 @@ function formatMoney(value: string | number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
-export default async function PerformancePage() {
-  const rows = await getPerformance();
+export default async function PerformancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
+  const sp = await searchParams;
+  const view = sp.view === "best" || sp.view === "low" ? sp.view : "all";
+
+  const allRows = await getPerformance();
+  const rows =
+    view === "best"
+      ? [...allRows].sort((a, b) => Number(b.gross) - Number(a.gross)).slice(0, 30)
+      : view === "low"
+        ? [...allRows].sort((a, b) => Number(a.gross) - Number(b.gross)).slice(0, 30)
+        : allRows;
+  const pageTitle = view === "best" ? "Best Selling" : view === "low" ? "Low Performing" : "Performance";
 
   const withScores = rows.map((r) => {
     const gross = Number(r.gross);
@@ -69,8 +83,11 @@ export default async function PerformancePage() {
     return { ...r, daysSinceLaunch, revenuePerDay };
   });
 
-  const withSales = withScores.filter((r) => Number(r.gross) > 0 || r.order_count > 0);
-  const sortedGross = [...withSales].map((r) => Number(r.gross)).sort((a, b) => a - b);
+  // Percentile is always computed against the FULL catalog, not whatever
+  // subset is currently displayed — otherwise "Best Selling" would trivially
+  // show everyone near 100 and "Low Performing" near 0.
+  const allWithSales = allRows.filter((r) => Number(r.gross) > 0 || r.order_count > 0);
+  const sortedGross = allWithSales.map((r) => Number(r.gross)).sort((a, b) => a - b);
 
   function percentileScore(gross: number): number {
     if (sortedGross.length === 0) return 0;
@@ -91,10 +108,10 @@ export default async function PerformancePage() {
       <div style={{ flex: 1, padding: "24px 32px" }}>
         <div style={{ marginBottom: 12 }}>
           <h1 style={{ fontFamily: "var(--font-voice)", fontSize: 22, color: "var(--text-primary)", margin: 0 }}>
-            Performance
+            {pageTitle}
           </h1>
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-            {rows.length} live products
+            {view === "all" ? `${rows.length} live products` : `Top ${rows.length} of ${allRows.length} live products`}
           </p>
         </div>
 

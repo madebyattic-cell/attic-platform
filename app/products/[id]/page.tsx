@@ -2,6 +2,7 @@ import { db } from "@/db/client";
 import { products, series, listings, channels, orderItems, orders } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
+import { StatusActions } from "@/components/status-actions";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +81,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>
             {productSeries?.name ?? "No series"} · {product.kind}
             {product.number != null ? ` · #${product.number}` : ""}
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <StatusActions productId={product.id} currentStatus={product.status} />
           </div>
         </div>
 

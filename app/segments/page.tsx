@@ -72,7 +72,7 @@ const SEGMENTS: Segment[] = [
   },
   {
     key: "potential_loyalist",
-    label: "Potential Loyalist",
+    label: "Potential",
     description: "Recent buyer with moderate frequency — could become a Champion",
     color: "#00897B",
     match: (r, f, m) => r >= 4 && f >= 2 && f < 4,
@@ -112,12 +112,19 @@ function formatMoney(value: string | number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
-export default async function SegmentsPage() {
+export default async function SegmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ segment?: string }>;
+}) {
+  const sp = await searchParams;
+  const activeSegment = sp.segment ?? "all";
+
   const rows = await getRfmData();
-  const classified = rows.map((r) => ({ ...r, segment: classify(r.r_score, r.f_score, r.m_score) }));
+  const allClassified = rows.map((r) => ({ ...r, segment: classify(r.r_score, r.f_score, r.m_score) }));
 
   const bySegment = new Map<string, { segment: Segment; count: number; revenue: number }>();
-  for (const c of classified) {
+  for (const c of allClassified) {
     const existing = bySegment.get(c.segment.key) ?? { segment: c.segment, count: 0, revenue: 0 };
     existing.count += 1;
     existing.revenue += Number(c.lifetime_net);
@@ -125,27 +132,46 @@ export default async function SegmentsPage() {
   }
   const segmentSummary = Array.from(bySegment.values()).sort((a, b) => b.revenue - a.revenue);
 
+  const classified =
+    activeSegment === "all" ? allClassified : allClassified.filter((c) => c.segment.key === activeSegment);
+  const activeSegmentLabel =
+    activeSegment === "all" ? "Customer Segments" : segmentSummary.find((s) => s.segment.key === activeSegment)?.segment.label ?? "Segment";
+
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--surface-0)" }}>
       <Sidebar />
       <div style={{ flex: 1, padding: "24px 32px" }}>
         <div style={{ marginBottom: 20 }}>
           <h1 style={{ fontFamily: "var(--font-voice)", fontSize: 22, color: "var(--text-primary)", margin: 0 }}>
-            Customer Segments
+            {activeSegmentLabel}
           </h1>
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-            RFM scoring — recency, frequency, monetary value — {classified.length} customers with at least one order
+            RFM scoring — recency, frequency, monetary value — {classified.length} customers
+            {activeSegment !== "all" && (
+              <>
+                {" · "}
+                <Link href="/segments" style={{ color: "var(--text-muted)" }}>
+                  clear filter
+                </Link>
+              </>
+            )}
           </p>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 28 }}>
           {segmentSummary.map((s) => (
-            <div key={s.segment.key} style={{ background: "var(--surface-1)", borderRadius: 10, padding: "14px 16px", borderLeft: `3px solid ${s.segment.color}` }}>
+            <Link
+              key={s.segment.key}
+              href={`/segments?segment=${s.segment.key}`}
+              style={{ textDecoration: "none", display: "block" }}
+            >
+            <div style={{ background: "var(--surface-1)", borderRadius: 10, padding: "14px 16px", borderLeft: `3px solid ${s.segment.color}`, outline: activeSegment === s.segment.key ? `1.5px solid ${s.segment.color}` : "none" }}>
               <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{s.segment.label}</div>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>{s.segment.description}</div>
               <div style={{ fontSize: 18, color: "var(--text-primary)" }}>{s.count} customers</div>
               <div style={{ fontSize: 12, color: "var(--text-accent)" }}>{formatMoney(s.revenue)} lifetime</div>
             </div>
+            </Link>
           ))}
         </div>
 
