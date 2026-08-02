@@ -1,6 +1,7 @@
 import { db } from "@/db/client";
 import { sql } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +22,21 @@ type CustomerRow = {
   lifetime_net: string;
 };
 
-type CountryRow = {
-  country: string;
-  customer_count: number;
-  revenue: string;
-};
+const countryDisplay = new Intl.DisplayNames(["en"], { type: "region" });
+
+function fullCountryName(raw: string | null): string {
+  if (!raw) return "Unknown";
+  const trimmed = raw.trim();
+  if (trimmed.length === 2) {
+    try {
+      const name = countryDisplay.of(trimmed.toUpperCase());
+      if (name) return name;
+    } catch {
+      // fall through to raw value below
+    }
+  }
+  return trimmed;
+}
 
 async function getStats() {
   const result = await db.execute<StatsRow>(sql`
@@ -44,7 +55,7 @@ async function getStats() {
   return result.rows[0] ?? { total_customers: 0, repeat_customers: 0, avg_ltv: "0" };
 }
 
-async function getTopCustomers() {
+async function getAllCustomers() {
   const result = await db.execute<CustomerRow>(sql`
     select
       c.id,
@@ -59,22 +70,6 @@ async function getTopCustomers() {
     left join orders o on o.customer_id = c.id
     group by c.id
     order by sum(o.net) desc nulls last
-    limit 30
-  `);
-  return result.rows;
-}
-
-async function getByCountry() {
-  const result = await db.execute<CountryRow>(sql`
-    select
-      coalesce(c.country, 'Unknown') as country,
-      count(distinct c.id)::int as customer_count,
-      coalesce(sum(o.net), 0)::text as revenue
-    from customers c
-    left join orders o on o.customer_id = c.id
-    group by coalesce(c.country, 'Unknown')
-    order by sum(o.net) desc nulls last
-    limit 12
   `);
   return result.rows;
 }
@@ -90,14 +85,24 @@ function formatDate(value: string | null) {
 }
 
 export default async function CustomersPage() {
-  const [stats, topCustomers, byCountry] = await Promise.all([
-    getStats(),
-    getTopCustomers(),
-    getByCountry(),
-  ]);
+  const [stats, customers] = await Promise.all([getStats(), getAllCustomers()]);
 
   const repeatRate =
     stats.total_customers > 0 ? (stats.repeat_customers / stats.total_customers) * 100 : 0;
+
+  // Country aggregation computed here, after normalizing to full names, so
+  // "US" and "United States" (if both appear raw) merge into one bucket.
+  const byCountryMap = new Map<string, { customerCount: number; revenue: number }>();
+  for (const c of customers) {
+    const name = fullCountryName(c.country);
+    const existing = byCountryMap.get(name) ?? { customerCount: 0, revenue: 0 };
+    existing.customerCount += 1;
+    existing.revenue += Number(c.lifetime_net);
+    byCountryMap.set(name, existing);
+  }
+  const byCountry = Array.from(byCountryMap.entries())
+    .map(([country, v]) => ({ country, ...v }))
+    .sort((a, b) => b.revenue - a.revenue);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--surface-0)" }}>
@@ -134,7 +139,9 @@ export default async function CustomersPage() {
 
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1fr)", gap: 24 }}>
           <div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>Top customers by lifetime value</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>
+              All customers ({customers.length.toLocaleString()})
+            </div>
             <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 10 }}>
               <div
                 style={{
@@ -152,34 +159,40 @@ export default async function CustomersPage() {
                 <div>Last order</div>
                 <div>Lifetime</div>
               </div>
-              {topCustomers.length === 0 ? (
+              {customers.length === 0 ? (
                 <div style={{ padding: 16, fontSize: 13, color: "var(--text-secondary)" }}>No customers yet.</div>
               ) : (
-                topCustomers.map((c, i) => (
-                  <div
+                customers.map((c, i) => (
+                  <Link
                     key={c.id}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1.6fr 0.7fr 0.9fr 0.9fr 0.9fr",
-                      alignItems: "center",
-                      padding: "10px 16px",
-                      borderBottom: i < topCustomers.length - 1 ? "0.5px solid var(--border)" : "none",
-                      fontSize: 12,
-                    }}
+                    href={`/customers/${c.id}`}
+                    style={{ textDecoration: "none", color: "inherit", display: "block" }}
                   >
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {c.name || c.email || "Unknown"}
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1.6fr 0.7fr 0.9fr 0.9fr 0.9fr",
+                        alignItems: "center",
+                        padding: "10px 16px",
+                        borderBottom: i < customers.length - 1 ? "0.5px solid var(--border)" : "none",
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {c.name || c.email || "Unknown"}
+                        </div>
+                        <div style={{ color: "var(--text-muted)", fontSize: 11 }}>
+                          {fullCountryName(c.country)}
+                        </div>
                       </div>
-                      <div style={{ color: "var(--text-muted)", fontSize: 11 }}>
-                        {c.country ?? "—"}
-                      </div>
+                      <div style={{ color: "var(--text-secondary)" }}>{c.order_count}</div>
+                      <div style={{ color: "var(--text-secondary)" }}>{formatDate(c.first_order_at)}</div>
+                      <div style={{ color: "var(--text-secondary)" }}>{formatDate(c.last_order_at)}</div>
+                      <div style={{ color: "var(--text-primary)" }}>{formatMoney(c.lifetime_net)}</div>
                     </div>
-                    <div style={{ color: "var(--text-secondary)" }}>{c.order_count}</div>
-                    <div style={{ color: "var(--text-secondary)" }}>{formatDate(c.first_order_at)}</div>
-                    <div style={{ color: "var(--text-secondary)" }}>{formatDate(c.last_order_at)}</div>
-                    <div style={{ color: "var(--text-primary)" }}>{formatMoney(c.lifetime_net)}</div>
-                  </div>
+                  </Link>
                 ))
               )}
             </div>
@@ -205,7 +218,7 @@ export default async function CustomersPage() {
                     <div>
                       <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{row.country}</div>
                       <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                        {row.customer_count} customer{row.customer_count === 1 ? "" : "s"}
+                        {row.customerCount} customer{row.customerCount === 1 ? "" : "s"}
                       </div>
                     </div>
                     <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{formatMoney(row.revenue)}</div>
