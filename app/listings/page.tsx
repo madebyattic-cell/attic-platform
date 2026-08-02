@@ -2,6 +2,7 @@ import { db } from "@/db/client";
 import { listings, products, series, channels, assets } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ async function getListings() {
   return db
     .select({
       id: listings.id,
+      productId: products.id,
       displayTitle: listings.displayTitle,
       price: listings.price,
       status: listings.status,
@@ -22,7 +24,10 @@ async function getListings() {
     .leftJoin(series, eq(products.seriesId, series.id))
     .innerJoin(channels, eq(listings.channelId, channels.id))
     .leftJoin(assets, and(eq(assets.productId, products.id), eq(assets.kind, "cover")))
-    .limit(50);
+    .orderBy(series.name, products.number, channels.name);
+  // No .limit() — this page is meant to show everything. If the catalog grows
+  // large enough that this gets slow, add real pagination then rather than
+  // silently truncating results again.
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -63,7 +68,9 @@ export default async function ListingsPage() {
             borderBottom: "0.5px solid var(--border)",
           }}
         >
-          <span style={{ fontSize: 15, color: "var(--text-primary)" }}>Listings</span>
+          <span style={{ fontSize: 15, color: "var(--text-primary)" }}>
+            Listings <span style={{ color: "var(--text-muted)", fontSize: 12 }}>({rows.length})</span>
+          </span>
           <div style={{ display: "flex", gap: 10 }}>
             <input placeholder="Search listings..." style={{ width: 200 }} />
             <a href="/products/new">
@@ -97,58 +104,64 @@ export default async function ListingsPage() {
               <div>Price</div>
             </div>
             {rows.map((row) => (
-              <div
+              <Link
                 key={row.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "2.2fr 1.2fr 1fr 0.9fr 0.7fr",
-                  alignItems: "center",
-                  padding: "11px 24px",
-                  borderBottom: "0.5px solid var(--border)",
-                }}
+                href={`/products/${row.productId}`}
+                style={{ textDecoration: "none", color: "inherit", display: "block" }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  {row.coverUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={row.coverUrl}
-                      alt=""
-                      style={{
-                        width: 32,
-                        height: 48,
-                        borderRadius: 6,
-                        objectFit: "cover",
-                        flexShrink: 0,
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: 32,
-                        height: 48,
-                        borderRadius: 6,
-                        background: "linear-gradient(135deg, #C1653B, #A8522E)",
-                        flexShrink: 0,
-                      }}
-                    />
-                  )}
-                  <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                    {row.displayTitle ?? "Untitled listing"}
-                  </span>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "2.2fr 1.2fr 1fr 0.9fr 0.7fr",
+                    alignItems: "center",
+                    padding: "11px 24px",
+                    borderBottom: "0.5px solid var(--border)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    {row.coverUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={row.coverUrl}
+                        alt=""
+                        style={{
+                          width: 32,
+                          height: 48,
+                          borderRadius: 6,
+                          objectFit: "cover",
+                          flexShrink: 0,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 32,
+                          height: 48,
+                          borderRadius: 6,
+                          background: "linear-gradient(135deg, #C1653B, #A8522E)",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                      {row.displayTitle ?? "Untitled listing"}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                    {row.seriesName ?? "—"}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                    {row.channelName}
+                  </div>
+                  <div>
+                    <StatusPill status={row.status} />
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                    {row.price ? `$${row.price}` : "—"}
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                  {row.seriesName ?? "—"}
-                </div>
-                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                  {row.channelName}
-                </div>
-                <div>
-                  <StatusPill status={row.status} />
-                </div>
-                <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                  {row.price ? `$${row.price}` : "—"}
-                </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
