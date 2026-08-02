@@ -103,6 +103,8 @@ export async function syncGumroadSales() {
 
     let pageKey: string | undefined;
     let written = 0;
+    let skippedRefunded = 0;
+    let skippedDuplicate = 0;
     let pageCount = 0;
     const MAX_PAGES = 20;
 
@@ -117,10 +119,21 @@ export async function syncGumroadSales() {
       console.log(
         `Gumroad sync page ${pageCount}: got ${page.sales.length} sales, nextPageKey=${page.nextPageKey ?? "none"}`
       );
+      if (page.sales.length > 0) {
+        console.log(
+          `Sample sale: id=${page.sales[0].id} refunded=${page.sales[0].refunded} chargebacked=${page.sales[0].chargebacked} email=${page.sales[0].email ?? "none"}`
+        );
+      }
 
       for (const s of page.sales) {
-        if (s.refunded || s.chargebacked) continue;
-        if (seenOrderIds.has(s.id)) continue;
+        if (s.refunded || s.chargebacked) {
+          skippedRefunded++;
+          continue;
+        }
+        if (seenOrderIds.has(s.id)) {
+          skippedDuplicate++;
+          continue;
+        }
 
         const orderedAt = new Date(s.created_at);
         const grossCents = s.price ?? 0;
@@ -169,6 +182,10 @@ export async function syncGumroadSales() {
 
       pageKey = page.nextPageKey;
     } while (pageKey);
+
+    console.log(
+      `Gumroad sync totals: written=${written} skippedRefunded=${skippedRefunded} skippedDuplicate=${skippedDuplicate}`
+    );
 
     await db
       .update(syncRuns)
