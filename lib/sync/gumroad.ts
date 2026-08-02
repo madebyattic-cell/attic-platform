@@ -40,6 +40,50 @@ async function fetchGumroadSales(pageKey?: string): Promise<{ sales: GumroadSale
 
 async function upsertCustomer(
   channelId: string,
+  existingByEmail: Map<string, { id: string; orderCount:
+cat > lib/sync/gumroad.ts << 'ENDOFFILE'
+import { db } from "@/db/client";
+import { orders, orderItems, customers, channels, syncRuns } from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+const GUMROAD_SALES_URL = "https://api.gumroad.com/v2/sales";
+
+type GumroadSale = {
+  id: string;
+  email?: string;
+  full_name?: string;
+  product_name?: string;
+  permalink?: string;
+  price: number;
+  gumroad_fee?: number;
+  currency?: string;
+  quantity?: number;
+  created_at: string;
+  country?: string;
+  discover_fee_charged?: boolean;
+  refunded?: boolean;
+  chargebacked?: boolean;
+};
+
+async function fetchGumroadSales(pageKey?: string): Promise<{ sales: GumroadSale[]; nextPageKey?: string }> {
+  const url = new URL(GUMROAD_SALES_URL);
+  if (pageKey) url.searchParams.set("page_key", pageKey);
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${process.env.GUMROAD_ACCESS_TOKEN}` },
+  });
+
+  const json = await res.json();
+
+  if (!res.ok || json.success === false) {
+    throw new Error(`Gumroad sales fetch failed: ${res.status} ${json.message ?? ""}`);
+  }
+
+  return { sales: json.sales ?? [], nextPageKey: json.next_page_key };
+}
+
+async function upsertCustomer(
+  channelId: string,
   existingByEmail: Map<string, { id: string; orderCount: number }>,
   email?: string,
   name?: string,
@@ -103,9 +147,20 @@ export async function syncGumroadSales() {
 
     let pageKey: string | undefined;
     let written = 0;
+    let pageCount = 0;
+    const MAX_PAGES = 20;
 
     do {
+      pageCount++;
+      if (pageCount > MAX_PAGES) {
+        console.log(`Gumroad sync: hit MAX_PAGES (${MAX_PAGES}), stopping to avoid runaway loop`);
+        break;
+      }
+
       const page = await fetchGumroadSales(pageKey);
+      console.log(
+        `Gumroad sync page ${pageCount}: got ${page.sales.length} sales, nextPageKey=${page.nextPageKey ?? "none"}`
+      );
 
       for (const s of page.sales) {
         if (s.refunded || s.chargebacked) continue;
