@@ -1,12 +1,78 @@
 import { db } from "@/db/client";
-import { channels } from "@/db/schema";
+import { channels, series, products } from "@/db/schema";
+import { isNotNull, ne, and } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
 import { createProduct } from "../actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewProductPage() {
+async function getFormData() {
   const allChannels = await db.select().from(channels);
+  const allSeries = await db.select({ name: series.name }).from(series);
+  const objectRows = await db.selectDistinct({ value: products.objectNoun }).from(products);
+  const categoryRows = await db
+    .selectDistinct({ value: products.category })
+    .from(products)
+    .where(and(isNotNull(products.category), ne(products.category, "")));
+
+  return {
+    allChannels,
+    seriesOptions: allSeries.map((s) => s.name),
+    objectOptions: objectRows.map((r) => r.value).filter((v): v is string => !!v),
+    categoryOptions: categoryRows.map((r) => r.value).filter((v): v is string => !!v),
+  };
+}
+
+function ComboField({
+  label,
+  name,
+  selectId,
+  inputId,
+  options,
+  placeholder,
+}: {
+  label: string;
+  name: string;
+  selectId: string;
+  inputId: string;
+  options: string[];
+  placeholder: string;
+}) {
+  return (
+    <div>
+      <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
+        {label}
+      </label>
+      <select id={selectId} name={name} style={{ width: "100%" }} defaultValue="">
+        <option value="" disabled>
+          Select {label.toLowerCase()}...
+        </option>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+        <option value="__new__">+ Create new...</option>
+      </select>
+      <input
+        id={inputId}
+        name={name}
+        placeholder={placeholder}
+        style={{ width: "100%", display: "none", marginTop: 6 }}
+      />
+      <button
+        type="button"
+        id={`${inputId}_back`}
+        style={{ display: "none", marginTop: 6, fontSize: 11 }}
+      >
+        ← choose existing
+      </button>
+    </div>
+  );
+}
+
+export default async function NewProductPage() {
+  const { allChannels, seriesOptions, objectOptions, categoryOptions } = await getFormData();
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--surface-0)" }}>
@@ -20,12 +86,14 @@ export default async function NewProductPage() {
         </p>
 
         <form action={createProduct} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <div>
-            <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
-              Series
-            </label>
-            <input name="seriesName" placeholder="e.g. Eclat du Menu" style={{ width: "100%" }} />
-          </div>
+          <ComboField
+            label="Series"
+            name="seriesName"
+            selectId="seriesSelect"
+            inputId="seriesInput"
+            options={seriesOptions}
+            placeholder="e.g. Eclat du Menu"
+          />
 
           <div>
             <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
@@ -40,36 +108,43 @@ export default async function NewProductPage() {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
-                Object
-              </label>
-              <input name="objectNoun" required placeholder="e.g. menu" style={{ width: "100%" }} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
-                Scene
-              </label>
-              <input name="sceneName" placeholder="e.g. on marble" style={{ width: "100%" }} />
-            </div>
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
-              Complexity band
-            </label>
-            <select name="complexityBand" id="complexityBand" style={{ width: "100%" }} defaultValue="standard">
-              <option value="standard">Standard</option>
-              <option value="complex">Complex</option>
-              <option value="heavy">Heavy multi-object</option>
-            </select>
+            <ComboField
+              label="Object"
+              name="objectNoun"
+              selectId="objectSelect"
+              inputId="objectInput"
+              options={objectOptions}
+              placeholder="e.g. menu"
+            />
+            <ComboField
+              label="Category"
+              name="category"
+              selectId="categorySelect"
+              inputId="categoryInput"
+              options={categoryOptions}
+              placeholder="e.g. Menus"
+            />
           </div>
 
           <div>
             <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
               Cover image
             </label>
-            <input name="coverImage" type="file" accept="image/*" />
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+              <input id="coverImageInput" name="coverImage" type="file" accept="image/*" />
+              <img
+                id="coverPreview"
+                alt=""
+                style={{
+                  width: 60,
+                  height: 90,
+                  borderRadius: 6,
+                  objectFit: "cover",
+                  display: "none",
+                  border: "0.5px solid var(--border)",
+                }}
+              />
+            </div>
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
               Crop to 2:3 before uploading — this is what shows in the listings table.
             </div>
@@ -77,9 +152,9 @@ export default async function NewProductPage() {
 
           <div style={{ borderTop: "0.5px solid var(--border)", paddingTop: 18, marginTop: 4 }}>
             <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 10 }}>
-              Channel prices — leave blank to skip that channel. Set the Wix price
-              first and the others fill in automatically; edit any of them by hand
-              to stop the auto-fill for that one.
+              Channel prices — leave blank to skip that channel. Wix defaults to
+              $12; the others fill in automatically from it. Edit any of them by
+              hand to stop the auto-fill for that one.
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {allChannels
@@ -95,6 +170,7 @@ export default async function NewProductPage() {
                       type="number"
                       step="0.01"
                       placeholder="0.00"
+                      defaultValue={c.key === "wix" ? "12.00" : undefined}
                       style={{ width: 120 }}
                       data-user-edited="false"
                     />
@@ -161,8 +237,60 @@ export default async function NewProductPage() {
           dangerouslySetInnerHTML={{
             __html: `
               (function () {
+                // --- Combo fields: select existing or create new ---
+                function initCombo(selectId, inputId) {
+                  var select = document.getElementById(selectId);
+                  var input = document.getElementById(inputId);
+                  var backBtn = document.getElementById(inputId + '_back');
+                  if (!select || !input || !backBtn) return;
+
+                  select.addEventListener('change', function () {
+                    if (select.value === '__new__') {
+                      select.style.display = 'none';
+                      select.removeAttribute('name');
+                      input.style.display = 'block';
+                      input.setAttribute('name', select.getAttribute('data-field-name') || '');
+                      backBtn.style.display = 'inline-block';
+                      input.focus();
+                    }
+                  });
+
+                  backBtn.addEventListener('click', function () {
+                    input.style.display = 'none';
+                    input.removeAttribute('name');
+                    input.value = '';
+                    backBtn.style.display = 'none';
+                    select.style.display = 'block';
+                    select.setAttribute('name', select.getAttribute('data-field-name') || '');
+                    select.value = '';
+                  });
+                }
+
+                ['seriesSelect|seriesInput', 'objectSelect|objectInput', 'categorySelect|categoryInput'].forEach(function (pair) {
+                  var parts = pair.split('|');
+                  var select = document.getElementById(parts[0]);
+                  if (select) select.setAttribute('data-field-name', select.getAttribute('name') || '');
+                  initCombo(parts[0], parts[1]);
+                });
+
+                // --- Cover image preview ---
+                var fileInput = document.getElementById('coverImageInput');
+                var preview = document.getElementById('coverPreview');
+                if (fileInput && preview) {
+                  fileInput.addEventListener('change', function () {
+                    var file = fileInput.files && fileInput.files[0];
+                    if (!file) { preview.style.display = 'none'; return; }
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                      preview.src = e.target.result;
+                      preview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                  });
+                }
+
+                // --- Price cascade from Wix ---
                 var wixInput = document.getElementById('price_wix');
-                var bandSelect = document.getElementById('complexityBand');
                 if (!wixInput) return;
 
                 var otherIds = [
@@ -181,15 +309,7 @@ export default async function NewProductPage() {
                     el.setAttribute('data-user-edited', 'true');
                   });
                 });
-                wixInput.addEventListener('input', function () {
-                  wixInput.setAttribute('data-user-edited', 'true');
-                });
 
-                // Offsets from the standard band: Wix $12 / Gumroad $14 /
-                // Behance $19 / Creative Market $15 personal, $24 commercial,
-                // $60 extended. Applied as a flat offset from whatever Wix
-                // price is set — an approximation at higher bands, since the
-                // exact ladder above $12 hasn't been pinned down yet.
                 var offsets = {
                   price_gumroad: 2,
                   price_behance: 7,
@@ -210,20 +330,7 @@ export default async function NewProductPage() {
                 }
 
                 wixInput.addEventListener('input', cascadeFromWix);
-
-                // Complexity band sets a default Wix price, which then
-                // cascades to everything else — so there's one source of
-                // truth instead of the band and the price disagreeing.
-                var bandDefaults = { standard: 12, complex: 14, heavy: 16 };
-                if (bandSelect) {
-                  bandSelect.addEventListener('change', function () {
-                    if (wixInput.getAttribute('data-user-edited') === 'true') return;
-                    var def = bandDefaults[bandSelect.value];
-                    if (def == null) return;
-                    wixInput.value = def.toFixed(2);
-                    cascadeFromWix();
-                  });
-                }
+                cascadeFromWix();
               })();
             `,
           }}

@@ -10,13 +10,14 @@ export async function createProduct(formData: FormData) {
   const seriesName = String(formData.get("seriesName") ?? "").trim();
   const internalName = String(formData.get("internalName") ?? "").trim();
   const objectNoun = String(formData.get("objectNoun") ?? "").trim();
-  const sceneName = String(formData.get("sceneName") ?? "").trim() || null;
-  const complexityBand = String(formData.get("complexityBand") ?? "standard");
+  const category = String(formData.get("category") ?? "").trim() || null;
 
   if (!internalName || !objectNoun) {
     throw new Error("Internal name and object noun are required.");
   }
 
+  // Find or create the series by name — keeps this simple for now, no
+  // separate "manage series" screen yet.
   let seriesId: string | null = null;
   if (seriesName) {
     const existing = await db.query.series.findFirst({ where: eq(series.name, seriesName) });
@@ -37,12 +38,13 @@ export async function createProduct(formData: FormData) {
       seriesId,
       internalName,
       objectNoun,
-      sceneName,
-      complexityBand,
+      category,
+      complexityBand: "standard",
       status: "draft",
     })
     .returning({ id: products.id });
 
+  // Upload the cover image if one was provided.
   const coverImage = formData.get("coverImage");
   if (coverImage instanceof File && coverImage.size > 0) {
     const blob = await put(`covers/${product.id}-${coverImage.name}`, coverImage, {
@@ -58,6 +60,7 @@ export async function createProduct(formData: FormData) {
     });
   }
 
+  // Create a listing row for each channel the person set a price on.
   const allChannels = await db.select().from(channels);
   for (const channel of allChannels) {
     if (channel.key === "creative_market") {
@@ -83,7 +86,7 @@ export async function createProduct(formData: FormData) {
     }
 
     const priceRaw = formData.get(`price_${channel.key}`);
-    if (!priceRaw || priceRaw === "") continue;
+    if (!priceRaw || priceRaw === "") continue; // channel not selected
 
     await db.insert(listings).values({
       productId: product.id,
