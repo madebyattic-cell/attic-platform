@@ -54,6 +54,12 @@ function slugify(input: string): string {
 }
 
 const NUMBER_RE = /\b(\d{1,2})\b/;
+const SEPARATORS = [" : ", " | "];
+
+const BUNDLE_KEYWORDS =
+  /\b(collection|bundle|definitive set|editorial visuals|editorial images|editorial mockups|stock image|mockup collection|mockup set|mockup bundle)\b/i;
+
+const FREE_TAG_RE = /^\s*\[[^\]]*\]\s*/;
 
 type ParseResult =
   | {
@@ -64,10 +70,21 @@ type ParseResult =
     }
   | { ok: false; reason: string };
 
-function parseProductName(name: string): ParseResult {
-  const parts = name.split(/\s*:\s*/);
+function parseProductName(rawName: string): ParseResult {
+  const name = rawName.replace(FREE_TAG_RE, "").trim();
+
+  if (BUNDLE_KEYWORDS.test(name)) {
+    return { ok: false, reason: "looks like a bundle/collection, not a single product" };
+  }
+
+  const usedSeparator = SEPARATORS.find((sep) => name.includes(sep));
+  if (!usedSeparator) {
+    return { ok: false, reason: "no ':' or '|' separator found" };
+  }
+
+  const parts = name.split(usedSeparator);
   if (parts.length !== 2) {
-    return { ok: false, reason: `expected exactly one ':' separator, found ${parts.length - 1}` };
+    return { ok: false, reason: `expected exactly one '${usedSeparator.trim()}' separator, found ${parts.length - 1}` };
   }
 
   const [left, right] = parts;
@@ -86,13 +103,19 @@ function parseProductName(name: string): ParseResult {
     : [right, left, rightMatch!];
 
   const number = parseInt(match[1], 10);
-  if (number < 1 || number > 40) {
+  if (number < 1 || number > 60) {
     return { ok: false, reason: `parsed number ${number} out of expected range` };
   }
 
-  const seriesNameGuess = seriesSideRaw.replace(NUMBER_RE, "").trim();
+  let seriesNameGuess = seriesSideRaw.replace(NUMBER_RE, "").trim();
+  seriesNameGuess = seriesNameGuess.replace(/^the\s+/i, "").replace(/\s+series$/i, "").trim();
+
+  if (/mockup/i.test(seriesNameGuess)) {
+    return { ok: false, reason: "series-side text contains 'mockup', likely misparsed" };
+  }
+
   const seriesWordCount = seriesNameGuess.split(/\s+/).filter(Boolean).length;
-  if (seriesWordCount === 0 || seriesWordCount > 3) {
+  if (seriesWordCount === 0 || seriesWordCount > 5) {
     return { ok: false, reason: `series-side text "${seriesNameGuess}" looks wrong (word count ${seriesWordCount})` };
   }
 
@@ -104,7 +127,7 @@ function splitObjectAndScene(descSide: string): { objectNoun: string; sceneName:
   if (mockupIdx === -1) {
     return { objectNoun: descSide, sceneName: null };
   }
-  const before = descSide.slice(0, mockupIdx).trim();
+  const before = descSide.slice(0, mockupIdx).trim().replace(/^the\s+/i, "");
   let after = descSide.slice(mockupIdx + "mockup".length).trim();
   after = after.replace(/^(in|on|under|with|at|by|near)\s+/i, "");
   return {
