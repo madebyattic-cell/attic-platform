@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { RefreshButton } from "./refresh-button";
 
 function Icon({ children }: { children: ReactNode }) {
@@ -132,8 +132,25 @@ export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("attic-sidebar-collapsed");
+      if (saved) setCollapsed(JSON.parse(saved));
+    } catch {
+      // ignore — falls back to default expanded state
+    }
+  }, []);
+
   function toggle(label: string) {
-    setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
+    setCollapsed((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      try {
+        localStorage.setItem("attic-sidebar-collapsed", JSON.stringify(next));
+      } catch {
+        // ignore — collapse still works for this render, just won't persist
+      }
+      return next;
+    });
   }
 
   function ExpandableSection({ section }: { section: (typeof EXPANDABLE)[number] }) {
