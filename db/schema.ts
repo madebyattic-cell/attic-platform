@@ -226,6 +226,18 @@ export const syncRuns = pgTable("sync_runs", {
 // Raw GA4 page views by URL path. Not yet matched to specific listings —
 // that requires each listing to carry its real Wix page URL, which isn't
 // captured yet. This table is the source of truth once that matching exists.
+export const trafficSourceDaily = pgTable(
+  "traffic_source_daily",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    day: date("day").notNull(),
+    source: text("source").notNull(),
+    sessions: integer("sessions").notNull().default(0),
+  },
+  (t) => ({
+    daySourceIdx: uniqueIndex("traffic_source_daily_day_source_idx").on(t.day, t.source),
+  })
+);
 export const pageViewsDaily = pgTable(
   "page_views_daily",
   {
