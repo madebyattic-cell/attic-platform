@@ -267,8 +267,6 @@ const HEART = <Icon><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 
 const COIN = <Icon><circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round" /><path d="M9 12h6M12 9v6" strokeLinecap="round" strokeLinejoin="round" /></Icon>;
 const SMILEY = <Icon><circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round" /><path d="M8 14s1.5 2 4 2 4-2 4-2" strokeLinecap="round" strokeLinejoin="round" /><line x1="9" y1="9" x2="9.01" y2="9" strokeLinecap="round" /><line x1="15" y1="9" x2="15.01" y2="9" strokeLinecap="round" /></Icon>;
 const TARGET = <Icon><circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round" /><circle cx="12" cy="12" r="4.5" strokeLinecap="round" strokeLinejoin="round" /><circle cx="12" cy="12" r="1" fill="#2C2A26" /></Icon>;
-const SEARCH_ICON = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A867B" strokeWidth={1.8}><circle cx="11" cy="11" r="7" strokeLinecap="round" strokeLinejoin="round" /><path d="M20 20l-4-4" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-const BELL_ICON = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2C2A26" strokeWidth={1.6}><path d="M6 8a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6z" strokeLinecap="round" strokeLinejoin="round" /><path d="M10 20a2 2 0 004 0" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 
 function TrendBadge({ pct }: { pct: number }) {
   return (
@@ -290,7 +288,6 @@ export default async function DashboardPage({
   const [
     totals, customerCount, conversion, insight, monthlyBars, topClients, rapidGrowthCount,
     latestOrders, wixTop, gumroadTop, byPlatform, bySource, favoriteProduct, availableMonths,
-    failedSyncCount,
   ] = await Promise.all([
     getTotals(startDate, endDate),
     getCustomerCount(startDate, endDate),
@@ -306,7 +303,6 @@ export default async function DashboardPage({
     getSalesBySource(startDate, endDate),
     getFavoriteProduct(startDate, endDate),
     getAvailableMonths(),
-    getFailedSyncCount(),
   ]);
 
   let yoy: { net: number; customers: number; conversion: number | null } | null = null;
@@ -346,32 +342,9 @@ export default async function DashboardPage({
   });
 
   return (
-    <div className="dash-outer" style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#F2F3EE" }}>
+    <div className="dash-frame" style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#F2F3EE" }}>
       <Sidebar />
-
-      <div className="dash-wrapper" style={{ flex: 1, minWidth: 0, height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        {/* Header row — was previously missing entirely from this page */}
-        <div className="dash-header-row" style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 16, padding: "24px 32px 0" }}>
-          <form action="/search" method="GET" style={{ flex: 1, maxWidth: 420 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#FBFCF6", border: "1px solid #D8D8C7", borderRadius: 999, padding: "9px 16px" }}>
-              {SEARCH_ICON}
-              <input
-                name="q"
-                placeholder="Search"
-                style={{ flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontSize: 13, color: "#2C2A26" }}
-              />
-            </div>
-          </form>
-          <div style={{ flex: 1 }} />
-          <div style={{ position: "relative", flexShrink: 0 }}>
-            {BELL_ICON}
-            {failedSyncCount > 0 && (
-              <span style={{ position: "absolute", top: -2, right: -2, width: 8, height: 8, borderRadius: "50%", background: "#C1653B", border: "2px solid #F2F3EE" }} />
-            )}
-          </div>
-        </div>
-
-        <div className="dash-content-row" style={{ flex: 1, minWidth: 0, padding: "16px 32px 24px", display: "flex", gap: 24, height: "100%", overflow: "hidden" }}>
+      <div className="dash-content-row" style={{ flex: 1, minWidth: 0, padding: "24px 32px", display: "flex", gap: 24, height: "100%", overflow: "hidden" }}>
           <div className="dash-main-col" style={{ flex: 1, minWidth: 0, height: "100%", overflowY: "auto", paddingRight: 4 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14, gap: 16, flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
@@ -485,11 +458,21 @@ export default async function DashboardPage({
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 12, color: "#2C2A26", marginBottom: 8 }}>Wix Studio</div>
-                    {wixTop.map((p, i) => <div key={i} style={{ fontSize: 11, color: "#8A867B", padding: "4px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name} · {formatMoney(p.gross)}</div>)}
+                    {wixTop.map((p, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 0" }}>
+                        <span style={{ fontSize: 11, color: "#8A867B", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                        <span style={{ fontSize: 11, color: "#2C2A26", flexShrink: 0 }}>{formatMoney(p.gross)}</span>
+                      </div>
+                    ))}
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 12, color: "#2C2A26", marginBottom: 8 }}>Gumroad</div>
-                    {gumroadTop.map((p, i) => <div key={i} style={{ fontSize: 11, color: "#8A867B", padding: "4px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name} · {formatMoney(p.gross)}</div>)}
+                    {gumroadTop.map((p, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 0" }}>
+                        <span style={{ fontSize: 11, color: "#8A867B", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                        <span style={{ fontSize: 11, color: "#2C2A26", flexShrink: 0 }}>{formatMoney(p.gross)}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -574,8 +557,7 @@ export default async function DashboardPage({
 
       <style>{`
         @media (max-width: 1300px) {
-          .dash-outer { height: auto !important; overflow: visible !important; }
-          .dash-wrapper { height: auto !important; overflow: visible !important; }
+          .dash-frame { height: auto !important; overflow: visible !important; }
           .dash-content-row { flex-direction: column !important; height: auto !important; overflow: visible !important; }
           .dash-main-col { height: auto !important; overflow: visible !important; }
           .dash-right-rail { width: 100% !important; height: auto !important; overflow: visible !important; }
