@@ -362,17 +362,17 @@ export default async function DashboardPage({
             </div>
             <div style={{ background: CARD_BG, borderRadius: 22, padding: 20, aspectRatio: "1", display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>{COIN}<span style={{ fontSize: 14, color: "#2C2A26" }}>Net Income</span></div>
-              <div style={{ fontSize: 30, color: "#2C2A26", marginTop: "auto" }}>{formatMoney(totals.net)}</div>
+              <div style={{ fontSize: 30, color: "#2C2A26", marginTop: 6 }}>{formatMoney(totals.net)}</div>
               {yoy && <div style={{ fontSize: 11, color: yoy.net >= 0 ? "#3B6D11" : "#DE9E4D" }}>↗ {yoy.net >= 0 ? "+" : ""}{yoy.net.toFixed(0)}% from last year</div>}
             </div>
             <div style={{ background: CARD_BG, borderRadius: 22, padding: 20, aspectRatio: "1", display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>{SMILEY}<span style={{ fontSize: 14, color: "#2C2A26" }}>Customers</span></div>
-              <div style={{ fontSize: 30, color: "#2C2A26", marginTop: "auto" }}>{customerCount.toLocaleString()}</div>
+              <div style={{ fontSize: 30, color: "#2C2A26", marginTop: 6 }}>{customerCount.toLocaleString()}</div>
               {yoy && <div style={{ fontSize: 11, color: yoy.customers >= 0 ? "#3B6D11" : "#DE9E4D" }}>↗ {yoy.customers >= 0 ? "+" : ""}{yoy.customers.toFixed(0)}% from last year</div>}
             </div>
             <div style={{ background: CARD_BG, borderRadius: 22, padding: 20, aspectRatio: "1", display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>{TARGET}<span style={{ fontSize: 14, color: "#2C2A26" }}>Conversion</span></div>
-              <div style={{ fontSize: 30, color: "#2C2A26", marginTop: "auto" }}>{conversion.reliable ? `${conversion.rate!.toFixed(1)}%` : "—"}</div>
+              <div style={{ fontSize: 30, color: "#2C2A26", marginTop: 6 }}>{conversion.reliable ? `${conversion.rate!.toFixed(1)}%` : "—"}</div>
               {yoy && yoy.conversion != null ? (
                 <div style={{ fontSize: 11, color: yoy.conversion >= 0 ? "#3B6D11" : "#DE9E4D" }}>↗ {yoy.conversion >= 0 ? "+" : ""}{yoy.conversion.toFixed(0)}% from last year</div>
               ) : (
