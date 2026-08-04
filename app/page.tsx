@@ -331,8 +331,8 @@ export default async function DashboardPage({
     const midAngle = cumAngle + pct / 2;
     cumAngle += pct;
     const rad = (midAngle / 100) * 2 * Math.PI - Math.PI / 2;
-    const radius = 88;
-    return { source: r.source, pct, x: 80 + radius * Math.cos(rad), y: 80 + radius * Math.sin(rad), isMajor: pct > 40 };
+    const radius = 60;
+    return { source: r.source, pct, x: 55 + radius * Math.cos(rad), y: 55 + radius * Math.sin(rad), isMajor: pct > 40 };
   });
 
   return (
@@ -463,17 +463,17 @@ export default async function DashboardPage({
           </div>
         </div>
 
-        <div style={{ width: 235, flexShrink: 0, display: "flex", flexDirection: "column", gap: 24, height: "100%", overflowY: "auto" }}>
+        <div style={{ width: 235, flexShrink: 0, display: "flex", flexDirection: "column", gap: 14, height: "100%", overflowY: "auto" }}>
           <div>
             <div style={{ fontSize: 13, color: "#2C2A26", marginBottom: 14 }}>Sales by Source</div>
             {bySource.total === 0 ? (
               <p style={{ fontSize: 12, color: "#8A867B" }}>No traffic source data synced yet.</p>
             ) : (
               <>
-                <div style={{ position: "relative", width: 160, height: 160, margin: "0 auto 14px" }}>
+                <div style={{ position: "relative", width: 110, height: 110, margin: "0 auto 10px" }}>
                   <div
                     style={{
-                      width: 160, height: 160, borderRadius: "50%",
+                      width: 110, height: 110, borderRadius: "50%",
                       background: `conic-gradient(${bySource.rows.reduce((acc, r) => {
                         const pct = (r.sessions / bySource.total) * 100;
                         const start = acc.cum; acc.cum += pct;
@@ -482,18 +482,18 @@ export default async function DashboardPage({
                       }, { cum: 0, parts: [] as string[] }).parts.join(", ")})`,
                     }}
                   />
-                  <div style={{ position: "absolute", inset: 24, borderRadius: "50%", background: "#F2F3EE", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ position: "absolute", inset: 17, borderRadius: "50%", background: "#F2F3EE", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                     <span style={{ fontSize: 9, color: "#8A867B" }}>Sessions</span>
                     <span style={{ fontSize: 13, color: "#2C2A26" }}>{bySource.total.toLocaleString()}</span>
                   </div>
                   {sliceLabels.filter((s) => !s.isMajor).map((s) => (
-                    <div key={s.source} style={{ position: "absolute", left: s.x - 16, top: s.y - 10, width: 32, height: 20, borderRadius: 10, background: "#FBFCF6", fontSize: 10, color: "#2C2A26", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.12)" }}>
+                    <div key={s.source} style={{ position: "absolute", left: s.x - 13, top: s.y - 8, width: 26, height: 16, borderRadius: 8, background: "#FBFCF6", fontSize: 9, color: "#2C2A26", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.12)" }}>
                       {s.pct.toFixed(0)}%
                     </div>
                   ))}
                 </div>
                 {bySource.rows.map((r) => (
-                  <div key={r.source} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 12 }}>
+                  <div key={r.source} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: 11 }}>
                     <span style={{ display: "flex", alignItems: "center", gap: 6, color: "#2C2A26" }}>
                       <span style={{ width: 8, height: 8, borderRadius: 3, background: SOURCE_COLORS[r.source] ?? "#8A867B" }} />{r.source}
                     </span>
@@ -507,7 +507,7 @@ export default async function DashboardPage({
           <div>
             <div style={{ fontSize: 13, color: "#2C2A26", marginBottom: 10 }}>Sales by Platform</div>
             {byPlatform.map((p) => (
-              <div key={p.name} style={{ background: CARD_BG, borderRadius: 10, padding: "9px 14px", display: "flex", justifyContent: "space-between", marginBottom: 5, fontSize: 12 }}>
+              <div key={p.name} style={{ background: CARD_BG, borderRadius: 10, padding: "6px 12px", display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 11 }}>
                 <span style={{ color: "#2C2A26" }}>{p.name}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   {p.grew && <span style={{ color: "#3B6D11", fontSize: 10 }}>↗</span>}
@@ -523,9 +523,9 @@ export default async function DashboardPage({
               <Link href={`/products/${favoriteProduct.product_id}`} style={{ textDecoration: "none" }}>
                 {favoriteProduct.cover_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={favoriteProduct.cover_url} alt="" style={{ width: "100%", height: 130, objectFit: "cover", borderRadius: 9, marginBottom: 10 }} />
+                  <img src={favoriteProduct.cover_url} alt="" style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 9, marginBottom: 10 }} />
                 ) : (
-                  <div style={{ width: "100%", height: 130, borderRadius: 9, marginBottom: 10, background: "linear-gradient(135deg, #C1653B, #A8522E)" }} />
+                  <div style={{ width: "100%", height: 90, borderRadius: 9, marginBottom: 10, background: "linear-gradient(135deg, #C1653B, #A8522E)" }} />
                 )}
                 <div style={{ fontSize: 12, color: "#2C2A26", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{favoriteProduct.name}</div>
                 <div style={{ fontSize: 12, color: "#A8522E", marginTop: 2 }}>{formatMoney(favoriteProduct.gross)}</div>
