@@ -389,13 +389,13 @@ export default async function DashboardPage({
                 {salesReportGrowth != null && <TrendBadge pct={salesReportGrowth} />}
               </div>
               <div style={{ display: "flex" }}>
-                <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 90, paddingRight: 8, fontSize: 10, color: "#8A867B" }}>
+                <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 200, paddingRight: 8, fontSize: 10, color: "#8A867B" }}>
                   {yAxisSteps.map((s) => <span key={s}>{s === 0 ? "$0" : `$${Math.round((maxBarGross * s) / 100) * 100}`}</span>)}
                 </div>
-                <div style={{ flex: 1, display: "flex", alignItems: "flex-end", gap: 8, height: 90, borderLeft: "1px solid #D8D8C7", paddingLeft: 12 }}>
+                <div style={{ flex: 1, display: "flex", alignItems: "flex-end", gap: 8, height: 200, borderLeft: "1px solid #D8D8C7", paddingLeft: 12 }}>
                   {monthlyBars.map((m) => (
                     <div key={m.month} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: "60%", height: `${Math.max(4, (m.gross / maxBarGross) * 82)}px`, background: tierColor[m.tier], borderRadius: 8 }} title={formatMoney(m.gross)} />
+                      <div style={{ width: "60%", height: `${Math.max(4, (m.gross / maxBarGross) * 190)}px`, background: tierColor[m.tier], borderRadius: 8 }} title={formatMoney(m.gross)} />
                       <span style={{ fontSize: 10, color: "#8A867B" }}>{m.label}</span>
                     </div>
                   ))}
