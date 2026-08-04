@@ -1,7 +1,6 @@
 import { db } from "@/db/client";
 import { sql } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
-import { DashboardHeader } from "@/components/dashboard-header";
 import { DashboardControls } from "@/components/dashboard-controls";
 import { ExpandableOrderRow } from "@/components/expandable-order-row";
 import Link from "next/link";
@@ -281,7 +280,7 @@ export default async function DashboardPage({
 
   const [
     totals, customerCount, conversion, insight, monthlyBars, topClients, rapidGrowthCount,
-    latestOrders, wixTop, gumroadTop, byPlatform, bySource, favoriteProduct, availableMonths, failedSyncCount,
+    latestOrders, wixTop, gumroadTop, byPlatform, bySource, favoriteProduct, availableMonths,
   ] = await Promise.all([
     getTotals(startDate, endDate),
     getCustomerCount(startDate, endDate),
@@ -297,7 +296,6 @@ export default async function DashboardPage({
     getSalesBySource(startDate, endDate),
     getFavoriteProduct(startDate, endDate),
     getAvailableMonths(),
-    getFailedSyncCount(),
   ]);
 
   let yoy: { net: number; customers: number; conversion: number | null } | null = null;
@@ -342,8 +340,6 @@ export default async function DashboardPage({
       <Sidebar />
       <div style={{ flex: 1, padding: "24px 32px", display: "flex", gap: 24, height: "100%", overflow: "hidden" }}>
         <div style={{ flex: 1, height: "100%", overflowY: "auto", paddingRight: 4 }}>
-          <DashboardHeader failedSyncCount={failedSyncCount} />
-
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
             <div>
               <h1 style={{ fontFamily: "var(--font-voice)", fontSize: 22, color: "#2C2A26", margin: 0 }}>Dashboard</h1>
