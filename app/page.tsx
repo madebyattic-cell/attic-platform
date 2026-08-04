@@ -110,7 +110,7 @@ async function getWeeklyInsight() {
   const prev7Start = ymd(new Date(today.getTime() - 14 * 86400000));
   const prev7End = ymd(new Date(today.getTime() - 8 * 86400000));
   const [last7, prev7] = await Promise.all([getTotals(last7Start, ymd(today)), getTotals(prev7Start, prev7End)]);
-  const change = pctChange(Number(last7.gross), Number(prev7.gross));
+  const change = pctChange(Number(last7.net), Number(prev7.net));
   return {
     date: today.toLocaleDateString("en-US", { day: "2-digit", month: "long", year: "numeric" }),
     pctChange: change,
@@ -138,40 +138,40 @@ async function getCalendarYearBars(endDate: string): Promise<MonthBar[]> {
 }
 
 async function getTopClients(startDate: string, endDate: string, range: string) {
-  const result = await db.execute<{ id: string; name: string | null; email: string | null; order_count: number; gross: string }>(sql`
-    select c.id, c.name, c.email, count(o.id)::int as order_count, coalesce(sum(o.gross), 0)::text as gross
+  const result = await db.execute<{ id: string; name: string | null; email: string | null; order_count: number; net: string }>(sql`
+    select c.id, c.name, c.email, count(o.id)::int as order_count, coalesce(sum(o.net), 0)::text as net
     from customers c join orders o on o.customer_id = c.id and o.ordered_at::date between ${startDate} and ${endDate}
-    group by c.id order by sum(o.gross) desc limit 4
+    group by c.id order by sum(o.net) desc limit 4
   `);
   if (range === "all" || result.rows.length === 0) return result.rows.map((r) => ({ ...r, growth: null as number | null }));
   const prior = priorPeriod(startDate, endDate);
-  const priorResult = await db.execute<{ id: string; gross: string }>(sql`
-    select c.id, coalesce(sum(o.gross), 0)::text as gross from customers c
+  const priorResult = await db.execute<{ id: string; net: string }>(sql`
+    select c.id, coalesce(sum(o.net), 0)::text as net from customers c
     join orders o on o.customer_id = c.id and o.ordered_at::date between ${prior.startDate} and ${prior.endDate}
     where c.id in (${sql.join(result.rows.map((r) => sql`${r.id}`), sql`, `)}) group by c.id
   `);
-  const priorByCustomer = new Map(priorResult.rows.map((r) => [r.id, Number(r.gross)]));
-  return result.rows.map((r) => ({ ...r, growth: pctChange(Number(r.gross), priorByCustomer.get(r.id) ?? 0) }));
+  const priorByCustomer = new Map(priorResult.rows.map((r) => [r.id, Number(r.net)]));
+  return result.rows.map((r) => ({ ...r, growth: pctChange(Number(r.net), priorByCustomer.get(r.id) ?? 0) }));
 }
 
 async function getRapidGrowthCount(startDate: string, endDate: string, range: string) {
   if (range === "all") return null;
-  const current = await db.execute<{ id: string; gross: string }>(sql`
-    select c.id, sum(o.gross)::text as gross from customers c
+  const current = await db.execute<{ id: string; net: string }>(sql`
+    select c.id, sum(o.net)::text as net from customers c
     join orders o on o.customer_id = c.id and o.ordered_at::date between ${startDate} and ${endDate}
     group by c.id
   `);
   if (current.rows.length === 0) return 0;
   const prior = priorPeriod(startDate, endDate);
-  const priorResult = await db.execute<{ id: string; gross: string }>(sql`
-    select c.id, sum(o.gross)::text as gross from customers c
+  const priorResult = await db.execute<{ id: string; net: string }>(sql`
+    select c.id, sum(o.net)::text as net from customers c
     join orders o on o.customer_id = c.id and o.ordered_at::date between ${prior.startDate} and ${prior.endDate}
     where c.id in (${sql.join(current.rows.map((r) => sql`${r.id}`), sql`, `)}) group by c.id
   `);
-  const priorMap = new Map(priorResult.rows.map((r) => [r.id, Number(r.gross)]));
+  const priorMap = new Map(priorResult.rows.map((r) => [r.id, Number(r.net)]));
   let count = 0;
   for (const r of current.rows) {
-    if (pctChange(Number(r.gross), priorMap.get(r.id) ?? 0) >= 50) count++;
+    if (pctChange(Number(r.net), priorMap.get(r.id) ?? 0) >= 50) count++;
   }
   return count;
 }
@@ -179,52 +179,52 @@ async function getRapidGrowthCount(startDate: string, endDate: string, range: st
 async function getLatestOrdersWithItems() {
   const orders = await db.execute<{
     order_id: string; order_number: string | null; external_order_id: string | null;
-    customer_name: string | null; customer_email: string | null; gross: string;
+    customer_name: string | null; customer_email: string | null; net: string;
   }>(sql`
-    select o.id as order_id, o.order_number, o.external_order_id, cu.name as customer_name, cu.email as customer_email, o.gross::text as gross
+    select o.id as order_id, o.order_number, o.external_order_id, cu.name as customer_name, cu.email as customer_email, o.net::text as net
     from orders o left join customers cu on o.customer_id = cu.id order by o.ordered_at desc limit 4
   `);
   const ids = orders.rows.map((o) => o.order_id);
   if (ids.length === 0) return [];
-  const items = await db.execute<{ order_id: string; name: string; quantity: number; gross: string }>(sql`
-    select oi.order_id, coalesce(p.internal_name, oi.description_raw, 'Unknown item') as name, oi.quantity, oi.gross::text as gross
+  const items = await db.execute<{ order_id: string; name: string; quantity: number; net: string }>(sql`
+    select oi.order_id, coalesce(p.internal_name, oi.description_raw, 'Unknown item') as name, oi.quantity, oi.net::text as net
     from order_items oi left join products p on oi.product_id = p.id
     where oi.order_id in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})
   `);
   const itemsByOrder = new Map<string, { name: string; quantity: number; gross: string }[]>();
   for (const it of items.rows) {
     const arr = itemsByOrder.get(it.order_id) ?? [];
-    arr.push({ name: it.name, quantity: it.quantity, gross: formatMoney(it.gross) });
+    arr.push({ name: it.name, quantity: it.quantity, gross: formatMoney(it.net) });
     itemsByOrder.set(it.order_id, arr);
   }
   return orders.rows.map((o) => ({ ...o, items: itemsByOrder.get(o.order_id) ?? [] }));
 }
 
 async function getTopProductsByChannel(startDate: string, endDate: string, channelKey: string) {
-  const result = await db.execute<{ name: string; gross: string }>(sql`
-    select p.internal_name as name, coalesce(sum(oi.gross), 0)::text as gross
+  const result = await db.execute<{ name: string; net: string }>(sql`
+    select p.internal_name as name, coalesce(sum(oi.net), 0)::text as net
     from order_items oi join orders o on oi.order_id = o.id and o.ordered_at::date between ${startDate} and ${endDate}
     join channels c on o.channel_id = c.id and c.key = ${channelKey}
-    join products p on oi.product_id = p.id group by p.id, p.internal_name order by sum(oi.gross) desc limit 3
+    join products p on oi.product_id = p.id group by p.id, p.internal_name order by sum(oi.net) desc limit 3
   `);
   return result.rows;
 }
 
 async function getSalesByPlatform(startDate: string, endDate: string, range: string) {
-  const result = await db.execute<{ name: string; gross: string }>(sql`
-    select c.name, coalesce(sum(o.gross), 0)::text as gross from channels c
+  const result = await db.execute<{ name: string; net: string }>(sql`
+    select c.name, coalesce(sum(o.net), 0)::text as net from channels c
     left join orders o on o.channel_id = c.id and o.ordered_at::date between ${startDate} and ${endDate}
-    group by c.name order by sum(o.gross) desc nulls last
+    group by c.name order by sum(o.net) desc nulls last
   `);
   if (range === "all") return result.rows.map((r) => ({ ...r, grew: null as boolean | null }));
   const prior = priorPeriod(startDate, endDate);
-  const priorResult = await db.execute<{ name: string; gross: string }>(sql`
-    select c.name, coalesce(sum(o.gross), 0)::text as gross from channels c
+  const priorResult = await db.execute<{ name: string; net: string }>(sql`
+    select c.name, coalesce(sum(o.net), 0)::text as net from channels c
     left join orders o on o.channel_id = c.id and o.ordered_at::date between ${prior.startDate} and ${prior.endDate}
     group by c.name
   `);
-  const priorMap = new Map(priorResult.rows.map((r) => [r.name, Number(r.gross)]));
-  return result.rows.map((r) => ({ ...r, grew: Number(r.gross) > (priorMap.get(r.name) ?? 0) }));
+  const priorMap = new Map(priorResult.rows.map((r) => [r.name, Number(r.net)]));
+  return result.rows.map((r) => ({ ...r, grew: Number(r.net) > (priorMap.get(r.name) ?? 0) }));
 }
 
 async function getSalesBySource(startDate: string, endDate: string) {
@@ -236,11 +236,11 @@ async function getSalesBySource(startDate: string, endDate: string) {
   return { rows: result.rows, total };
 }
 async function getFavoriteProduct(startDate: string, endDate: string) {
-  const result = await db.execute<{ product_id: string; name: string; gross: string; cover_url: string | null }>(sql`
-    select p.id as product_id, p.internal_name as name, coalesce(sum(oi.gross), 0)::text as gross,
+  const result = await db.execute<{ product_id: string; name: string; net: string; cover_url: string | null }>(sql`
+    select p.id as product_id, p.internal_name as name, coalesce(sum(oi.net), 0)::text as net,
       (select a.url from assets a where a.product_id = p.id and a.kind = 'cover' limit 1) as cover_url
     from order_items oi join orders o on oi.order_id = o.id and o.ordered_at::date between ${startDate} and ${endDate}
-    join products p on oi.product_id = p.id group by p.id, p.internal_name order by sum(oi.gross) desc limit 1
+    join products p on oi.product_id = p.id group by p.id, p.internal_name order by sum(oi.net) desc limit 1
   `);
   return result.rows[0] ?? null;
 }
@@ -476,7 +476,7 @@ export default async function DashboardPage({
                           <div style={{ fontSize: 11, color: "#8A867B" }}>{c.order_count} orders</div>
                         </div>
                         <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          <div style={{ fontSize: 12, color: "#2C2A26" }}>{formatMoney(c.gross)}</div>
+                          <div style={{ fontSize: 12, color: "#2C2A26" }}>{formatMoney(c.net)}</div>
                           {c.growth != null && <div style={{ fontSize: 10, color: c.growth >= 0 ? "#3B6D11" : "#DE9E4D" }}>{c.growth >= 0 ? "+" : ""}{c.growth.toFixed(0)}%</div>}
                         </div>
                       </div>
@@ -503,7 +503,7 @@ export default async function DashboardPage({
                     label={o.order_number ? `#${o.order_number}` : (o.external_order_id ?? "—").slice(0, 8)}
                     customerLabel={o.customer_name || o.customer_email || "Unknown"}
                     itemCount={o.items.length}
-                    gross={formatMoney(o.gross)}
+                    gross={formatMoney(o.net)}
                     items={o.items}
                   />
                 ))}
@@ -516,7 +516,7 @@ export default async function DashboardPage({
                     {wixTop.map((p, i) => (
                       <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 0" }}>
                         <span style={{ fontSize: 11, color: "#8A867B", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-                        <span style={{ fontSize: 11, color: "#2C2A26", flexShrink: 0 }}>{formatMoney(p.gross)}</span>
+                        <span style={{ fontSize: 11, color: "#2C2A26", flexShrink: 0 }}>{formatMoney(p.net)}</span>
                       </div>
                     ))}
                   </div>
@@ -525,7 +525,7 @@ export default async function DashboardPage({
                     {gumroadTop.map((p, i) => (
                       <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 0" }}>
                         <span style={{ fontSize: 11, color: "#8A867B", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-                        <span style={{ fontSize: 11, color: "#2C2A26", flexShrink: 0 }}>{formatMoney(p.gross)}</span>
+                        <span style={{ fontSize: 11, color: "#2C2A26", flexShrink: 0 }}>{formatMoney(p.net)}</span>
                       </div>
                     ))}
                   </div>
@@ -583,7 +583,7 @@ export default async function DashboardPage({
                   <span style={{ color: "#2C2A26", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
                   <span style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                     {p.grew && <span style={{ color: "#3B6D11", fontSize: 10 }}>↗</span>}
-                    <span style={{ color: "#2C2A26" }}>{formatMoney(p.gross)}</span>
+                    <span style={{ color: "#2C2A26" }}>{formatMoney(p.net)}</span>
                   </span>
                 </div>
               ))}
@@ -600,7 +600,7 @@ export default async function DashboardPage({
                     <div style={{ width: "100%", height: 90, borderRadius: 9, marginBottom: 10, background: "linear-gradient(135deg, #C1653B, #A8522E)" }} />
                   )}
                   <div style={{ fontSize: 12, color: "#2C2A26", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{favoriteProduct.name}</div>
-                  <div style={{ fontSize: 12, color: "#A8522E", marginTop: 2 }}>{formatMoney(favoriteProduct.gross)}</div>
+                  <div style={{ fontSize: 12, color: "#A8522E", marginTop: 2 }}>{formatMoney(favoriteProduct.net)}</div>
                 </Link>
               ) : (
                 <p style={{ fontSize: 12, color: "#8A867B" }}>No sales in this range yet.</p>
