@@ -336,10 +336,10 @@ export default async function DashboardPage({
   });
 
   return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#F2F3EE" }}>
+    <div className="dash-frame" style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#F2F3EE" }}>
       <Sidebar />
-      <div style={{ flex: 1, padding: "24px 32px", display: "flex", gap: 24, height: "100%", overflow: "hidden" }}>
-        <div style={{ flex: 1, height: "100%", overflowY: "auto", paddingRight: 4 }}>
+      <div className="dash-content-row" style={{ flex: 1, padding: "24px 32px", display: "flex", gap: 24, height: "100%", overflow: "hidden" }}>
+        <div className="dash-main-col" style={{ flex: 1, height: "100%", overflowY: "auto", paddingRight: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
             <div>
               <h1 style={{ fontFamily: "var(--font-voice)", fontSize: 22, color: "#2C2A26", margin: 0 }}>Dashboard</h1>
@@ -348,7 +348,7 @@ export default async function DashboardPage({
             <DashboardControls currentRange={range} currentLabel={label} hasExplicitMonth={!!sp.ym} availableMonths={availableMonths} />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 16 }}>
+          <div className="dash-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 16 }}>
             <div style={{ background: UPDATE_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>{HEART}<span style={{ fontSize: 12, color: "#2C2A26" }}>Update</span></div>
               <div style={{ fontSize: 12, color: "#6B6B55" }}>{insight.date}</div>
@@ -377,7 +377,7 @@ export default async function DashboardPage({
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 16 }}>
+          <div className="dash-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 16 }}>
             <div style={{ gridColumn: "1 / span 3", background: CARD_BG, borderRadius: 22, padding: 22 }}>
               <div style={{ fontSize: 13, color: "#2C2A26", marginBottom: 4 }}>Sales Report</div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
@@ -430,7 +430,7 @@ export default async function DashboardPage({
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+          <div className="dash-row-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
             <div style={{ gridColumn: "1 / span 2", background: CARD_BG, borderRadius: 22, padding: 22 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                 <span style={{ fontSize: 13, color: "#2C2A26" }}>Latest Orders</span>
@@ -463,7 +463,7 @@ export default async function DashboardPage({
           </div>
         </div>
 
-        <div style={{ width: 235, flexShrink: 0, display: "flex", flexDirection: "column", gap: 14, height: "100%", overflowY: "auto" }}>
+        <div className="dash-right-rail" style={{ width: 235, flexShrink: 0, display: "flex", flexDirection: "column", gap: 14, height: "100%", overflowY: "auto" }}>
           <div>
             <div style={{ fontSize: 13, color: "#2C2A26", marginBottom: 14 }}>Sales by Source</div>
             {bySource.total === 0 ? (
@@ -536,6 +536,22 @@ export default async function DashboardPage({
           </div>
         </div>
       </div>
+      <style>{`
+        @media (max-width: 1300px) {
+          .dash-frame { height: auto !important; overflow: visible !important; }
+          .dash-content-row { flex-direction: column !important; height: auto !important; overflow: visible !important; }
+          .dash-main-col { height: auto !important; overflow: visible !important; }
+          .dash-right-rail { width: 100% !important; height: auto !important; overflow: visible !important; }
+        }
+        @media (max-width: 700px) {
+          .dash-stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .dash-row-grid { grid-template-columns: 1fr !important; }
+          .dash-row-grid > div { grid-column: auto !important; }
+        }
+        @media (max-width: 420px) {
+          .dash-stat-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }
