@@ -398,9 +398,9 @@ export default async function DashboardPage({
             </div>
 
             <div className="dash-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14, marginBottom: 12 }}>
-              <div style={{ minWidth: 0, background: UPDATE_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
+              <div style={{ minWidth: 0, background: UPDATE_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{HEART}<span style={{ fontSize: 12, color: "#2C2A26" }}>Update</span></div>
-                <div style={{ fontSize: 13, color: "#2C2A26", marginTop: 12, lineHeight: 1.35, flex: 1 }}>
+                <div style={{ fontSize: 13, color: "#2C2A26", lineHeight: 1.35 }}>
                   {range === "all" ? (
                     <>{formatMoney(totals.gross)} in total revenue across {totals.order_count.toLocaleString()} orders.</>
                   ) : updateCardGrowth != null && updateCardDelta != null ? (
