@@ -417,19 +417,19 @@ export default async function DashboardPage({
                   See Statistics {CHEVRON_RIGHT}
                 </Link>
               </div>
-              <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>{COIN}<span style={{ fontSize: 12, color: "#2C2A26" }}>Net Income</span></div>
-                <div style={{ fontSize: 26, color: "#2C2A26", marginTop: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatMoney(totals.net)}</div>
-                {yoy && <div style={{ fontSize: 11, color: yoy.net >= 0 ? "#3B6D11" : "#DE9E4D" }}>↗ {yoy.net >= 0 ? "+" : ""}{yoy.net.toFixed(0)}% from last year</div>}
+              <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{COIN}<span style={{ fontSize: 12, color: "#2C2A26" }}>Net Income</span></div>
+                <div style={{ fontSize: 26, color: "#2C2A26", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatMoney(totals.net)}</div>
+                {yoy ? <div style={{ fontSize: 11, color: yoy.net >= 0 ? "#3B6D11" : "#DE9E4D" }}>↗ {yoy.net >= 0 ? "+" : ""}{yoy.net.toFixed(0)}% from last year</div> : <div />}
               </div>
-              <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>{SMILEY}<span style={{ fontSize: 12, color: "#2C2A26" }}>Customers</span></div>
-                <div style={{ fontSize: 26, color: "#2C2A26", marginTop: 8 }}>{customerCount.toLocaleString()}</div>
-                {yoy && <div style={{ fontSize: 11, color: yoy.customers >= 0 ? "#3B6D11" : "#DE9E4D" }}>↗ {yoy.customers >= 0 ? "+" : ""}{yoy.customers.toFixed(0)}% from last year</div>}
+              <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{SMILEY}<span style={{ fontSize: 12, color: "#2C2A26" }}>Customers</span></div>
+                <div style={{ fontSize: 26, color: "#2C2A26" }}>{customerCount.toLocaleString()}</div>
+                {yoy ? <div style={{ fontSize: 11, color: yoy.customers >= 0 ? "#3B6D11" : "#DE9E4D" }}>↗ {yoy.customers >= 0 ? "+" : ""}{yoy.customers.toFixed(0)}% from last year</div> : <div />}
               </div>
-              <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>{TARGET}<span style={{ fontSize: 12, color: "#2C2A26" }}>Conversion</span></div>
-                <div style={{ fontSize: 26, color: "#2C2A26", marginTop: 8 }}>{conversion.reliable ? `${conversion.rate!.toFixed(1)}%` : "—"}</div>
+              <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{TARGET}<span style={{ fontSize: 12, color: "#2C2A26" }}>Conversion</span></div>
+                <div style={{ fontSize: 26, color: "#2C2A26" }}>{conversion.reliable ? `${conversion.rate!.toFixed(1)}%` : "—"}</div>
                 {yoy && yoy.conversion != null ? (
                   <div style={{ fontSize: 11, color: yoy.conversion >= 0 ? "#3B6D11" : "#DE9E4D" }}>↗ {yoy.conversion >= 0 ? "+" : ""}{yoy.conversion.toFixed(0)}% from last year</div>
                 ) : (
