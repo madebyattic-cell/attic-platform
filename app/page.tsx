@@ -279,6 +279,7 @@ const HEART = <Icon><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 
 const COIN = <Icon><circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round" /><path d="M9 12h6M12 9v6" strokeLinecap="round" strokeLinejoin="round" /></Icon>;
 const SMILEY = <Icon><circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round" /><path d="M8 14s1.5 2 4 2 4-2 4-2" strokeLinecap="round" strokeLinejoin="round" /><line x1="9" y1="9" x2="9.01" y2="9" strokeLinecap="round" /><line x1="15" y1="9" x2="15.01" y2="9" strokeLinecap="round" /></Icon>;
 const TARGET = <Icon><circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round" /><circle cx="12" cy="12" r="4.5" strokeLinecap="round" strokeLinejoin="round" /><circle cx="12" cy="12" r="1" fill="#2C2A26" /></Icon>;
+const CHEVRON_RIGHT = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2C2A26" strokeWidth={2}><path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 
 function TrendBadge({ pct }: { pct: number }) {
   return (
@@ -398,9 +399,9 @@ export default async function DashboardPage({
 
             <div className="dash-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14, marginBottom: 12 }}>
               <div style={{ minWidth: 0, background: UPDATE_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>{HEART}<span style={{ fontSize: 12, color: "#2C2A26" }}>Update</span></div>
-                <div style={{ fontSize: 12, color: "#6B6B55" }}>{label}</div>
-                <div style={{ fontSize: 11, color: "#2C2A26", marginTop: 4, flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{HEART}<span style={{ fontSize: 12, color: "#2C2A26" }}>Update</span></div>
+                <div style={{ fontSize: 11, color: "#6B6B55", marginTop: 14 }}>{label}</div>
+                <div style={{ fontSize: 13, color: "#2C2A26", marginTop: 6, lineHeight: 1.35, flex: 1 }}>
                   {range === "all" ? (
                     <>{formatMoney(totals.gross)} in total revenue across {totals.order_count.toLocaleString()} orders.</>
                   ) : updateCardGrowth != null && updateCardDelta != null ? (
@@ -413,6 +414,9 @@ export default async function DashboardPage({
                     <>Not enough order history yet to compare this range.</>
                   )}
                 </div>
+                <Link href="/analytics" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#2C2A26", textDecoration: "none" }}>
+                  See Statistics {CHEVRON_RIGHT}
+                </Link>
               </div>
               <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>{COIN}<span style={{ fontSize: 12, color: "#2C2A26" }}>Net Income</span></div>
