@@ -4,6 +4,8 @@ import { eq, desc, and } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
 import { StatusActions } from "@/components/status-actions";
 import { ManualViewsForm } from "@/components/manual-views-form";
+import { BackLink } from "@/components/back-link";
+import { formatMoney, formatDate } from "@/lib/format";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -90,9 +92,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       <Sidebar />
       <div style={{ flex: 1, maxWidth: 960 }}>
         <div style={{ padding: "16px 24px", borderBottom: "0.5px solid var(--border)" }}>
-          <a href="/listings" style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            ← Back to listings
-          </a>
+          <BackLink fallbackHref="/listings" label="Back to listings" />
           <div style={{ fontSize: 18, marginTop: 8, color: "var(--text-primary)" }}>
             {product.internalName}
           </div>
@@ -112,7 +112,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           </div>
           <div style={{ background: "var(--surface-0)", padding: 16 }}>
             <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Total revenue</div>
-            <div style={{ fontSize: 22, color: "var(--text-primary)" }}>${totalRevenue.toFixed(2)}</div>
+            <div style={{ fontSize: 22, color: "var(--text-primary)" }}>{formatMoney(totalRevenue)}</div>
           </div>
           <div style={{ background: "var(--surface-0)", padding: 16 }}>
             <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Live listings</div>
@@ -183,7 +183,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               >
                 <span>{channelName}</span>
                 <span style={{ color: "var(--text-secondary)" }}>
-                  {stats.count} orders · ${stats.gross.toFixed(2)}
+                  {stats.count} orders · {formatMoney(stats.gross)}
                 </span>
               </div>
             ))
@@ -231,7 +231,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   </div>
                   <div>{o.channelName}</div>
                   <div>{o.quantity}</div>
-                  <div>${Number(o.gross).toFixed(2)}</div>
+                  <div>{formatMoney(o.gross)}</div>
                   <div>{o.buyerCountry ?? "—"}</div>
                 </div>
               ))}

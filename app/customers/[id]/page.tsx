@@ -3,6 +3,7 @@ import { customers, orders, orderItems, channels, products } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { Sidebar } from "@/components/sidebar";
 import Link from "next/link";
+import { BackLink } from "@/components/back-link";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -83,9 +84,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       <Sidebar />
       <div style={{ flex: 1, maxWidth: 960, padding: "0 0 40px" }}>
         <div style={{ padding: "16px 24px", borderBottom: "0.5px solid var(--border)" }}>
-          <Link href="/customers" style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            ← Back to customers
-          </Link>
+          <BackLink fallbackHref="/customers" label="Back to customers" />
           <div style={{ fontSize: 18, marginTop: 8, color: "var(--text-primary)" }}>
             {customer.name || customer.email || "Unknown customer"}
           </div>

@@ -24,6 +24,54 @@ function useClickOutside(onOutside: () => void) {
   return ref;
 }
 
+// Shared keyboard handling for a simple button-triggered listbox: Escape
+// closes and returns focus to the trigger, Arrow keys move the active
+// option, Enter/Space selects it — the standard WAI-ARIA listbox pattern.
+function useListboxKeyboard({
+  open,
+  setOpen,
+  optionCount,
+  onSelect,
+  triggerRef,
+}: {
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  optionCount: number;
+  onSelect: (index: number) => void;
+  triggerRef: React.RefObject<HTMLButtonElement>;
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  function onTriggerKeyDown(e: React.KeyboardEvent) {
+    if ((e.key === "Enter" || e.key === " " || e.key === "ArrowDown") && !open) {
+      e.preventDefault();
+      setOpen(true);
+      setActiveIndex(0);
+    }
+  }
+
+  function onListKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.min(i + 1, optionCount - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onSelect(activeIndex);
+    } else if (e.key === "Tab") {
+      setOpen(false);
+    }
+  }
+
+  return { activeIndex, setActiveIndex, onTriggerKeyDown, onListKeyDown };
+}
+
 export function DashboardControls({
   currentRange,
   currentLabel,
@@ -45,6 +93,23 @@ export function DashboardControls({
   const presetRef = useClickOutside(() => setPresetOpen(false));
   const monthRef = useClickOutside(() => setMonthOpen(false));
   const customRef = useClickOutside(() => setCustomOpen(false));
+  const presetTriggerRef = useRef<HTMLButtonElement>(null);
+  const monthTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const presetKb = useListboxKeyboard({
+    open: presetOpen,
+    setOpen: setPresetOpen,
+    optionCount: PRESETS.length,
+    onSelect: (i) => go(PRESETS[i].value === "month_current" ? { range: "month" } : { range: PRESETS[i].value }),
+    triggerRef: presetTriggerRef,
+  });
+  const monthKb = useListboxKeyboard({
+    open: monthOpen,
+    setOpen: setMonthOpen,
+    optionCount: availableMonths.length,
+    onSelect: (i) => availableMonths[i] && go({ range: "month", ym: availableMonths[i].ym }),
+    triggerRef: monthTriggerRef,
+  });
 
   // A "preset" is active when the range is one of the fixed presets, or
   // "This Month" was picked from the presets list (range=month with no
@@ -70,8 +135,12 @@ export function DashboardControls({
     <div style={{ display: "flex", gap: 8, position: "relative" }}>
       <div ref={presetRef} style={{ position: "relative" }}>
         <button
+          ref={presetTriggerRef}
           type="button"
+          aria-haspopup="listbox"
+          aria-expanded={presetOpen}
           onClick={() => setPresetOpen((o) => !o)}
+          onKeyDown={presetKb.onTriggerKeyDown}
           style={{
             padding: "7px 16px", borderRadius: 12, fontSize: 13, cursor: "pointer",
             background: isPresetActive ? "#E6E7B7" : "transparent",
@@ -82,13 +151,16 @@ export function DashboardControls({
           {isPresetActive ? presetButtonLabel : "All Time"} <span style={{ fontSize: 10 }}>▾</span>
         </button>
         {presetOpen && (
-          <div style={{ position: "absolute", top: "110%", left: 0, background: "#FBFCF6", border: "1px solid #D8D8C7", borderRadius: 12, padding: 6, minWidth: 150, zIndex: 20, boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
-            {PRESETS.map((p) => (
+          <div role="listbox" onKeyDown={presetKb.onListKeyDown} tabIndex={-1} ref={(el) => el?.focus()} style={{ position: "absolute", top: "110%", left: 0, background: "#FBFCF6", border: "1px solid #D8D8C7", borderRadius: 12, padding: 6, minWidth: 150, zIndex: 20, boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
+            {PRESETS.map((p, i) => (
               <button
                 key={p.value}
                 type="button"
+                role="option"
+                aria-selected={i === presetKb.activeIndex}
+                onMouseEnter={() => presetKb.setActiveIndex(i)}
                 onClick={() => go(p.value === "month_current" ? { range: "month" } : { range: p.value })}
-                style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 10px", fontSize: 13, background: "transparent", border: "none", borderRadius: 8, cursor: "pointer", color: "#2C2A26" }}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 10px", fontSize: 13, background: i === presetKb.activeIndex ? "#E6E7B7" : "transparent", border: "none", borderRadius: 8, cursor: "pointer", color: "#2C2A26" }}
               >
                 {p.label}
               </button>
@@ -99,8 +171,12 @@ export function DashboardControls({
 
       <div ref={monthRef} style={{ position: "relative" }}>
         <button
+          ref={monthTriggerRef}
           type="button"
+          aria-haspopup="listbox"
+          aria-expanded={monthOpen}
           onClick={() => setMonthOpen((o) => !o)}
+          onKeyDown={monthKb.onTriggerKeyDown}
           style={{
             padding: "7px 16px", borderRadius: 12, fontSize: 13, cursor: "pointer",
             background: isMonthActive ? "#E6E7B7" : "transparent",
@@ -111,16 +187,19 @@ export function DashboardControls({
           {monthButtonLabel} <span style={{ fontSize: 10 }}>▾</span>
         </button>
         {monthOpen && (
-          <div style={{ position: "absolute", top: "110%", left: 0, background: "#FBFCF6", border: "1px solid #D8D8C7", borderRadius: 12, padding: 6, minWidth: 160, maxHeight: 280, overflowY: "auto", zIndex: 20, boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
+          <div role="listbox" onKeyDown={monthKb.onListKeyDown} tabIndex={-1} ref={(el) => el?.focus()} style={{ position: "absolute", top: "110%", left: 0, background: "#FBFCF6", border: "1px solid #D8D8C7", borderRadius: 12, padding: 6, minWidth: 160, maxHeight: 280, overflowY: "auto", zIndex: 20, boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
             {availableMonths.length === 0 ? (
               <div style={{ padding: 10, fontSize: 12, color: "#8A867B" }}>No order history yet.</div>
             ) : (
-              availableMonths.map((m) => (
+              availableMonths.map((m, i) => (
                 <button
                   key={m.ym}
                   type="button"
+                  role="option"
+                  aria-selected={i === monthKb.activeIndex}
+                  onMouseEnter={() => monthKb.setActiveIndex(i)}
                   onClick={() => go({ range: "month", ym: m.ym })}
-                  style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 10px", fontSize: 13, background: "transparent", border: "none", borderRadius: 8, cursor: "pointer", color: "#2C2A26" }}
+                  style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 10px", fontSize: 13, background: i === monthKb.activeIndex ? "#E6E7B7" : "transparent", border: "none", borderRadius: 8, cursor: "pointer", color: "#2C2A26" }}
                 >
                   {m.label}
                 </button>
@@ -143,7 +222,7 @@ export function DashboardControls({
           {customButtonLabel}
         </button>
         {customOpen && (
-          <div style={{ position: "absolute", top: "110%", right: 0, background: "#FBFCF6", border: "1px solid #D8D8C7", borderRadius: 12, padding: 14, zIndex: 20, boxShadow: "0 4px 16px rgba(0,0,0,0.08)", display: "flex", flexDirection: "column", gap: 8, minWidth: 220 }}>
+          <div onKeyDown={(e) => { if (e.key === "Escape") setCustomOpen(false); }} style={{ position: "absolute", top: "110%", right: 0, background: "#FBFCF6", border: "1px solid #D8D8C7", borderRadius: 12, padding: 14, zIndex: 20, boxShadow: "0 4px 16px rgba(0,0,0,0.08)", display: "flex", flexDirection: "column", gap: 8, minWidth: 220 }}>
             <label style={{ fontSize: 11, color: "#8A867B" }}>
               From
               <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={{ display: "block", width: "100%", marginTop: 4, height: 32, fontSize: 13 }} />

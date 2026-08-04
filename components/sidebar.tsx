@@ -241,6 +241,10 @@ export function Sidebar() {
           <FlatLink href={item.href} label={item.label} icon={item.icon} active={pathname === item.href} />
         </div>
       ))}
+
+      <a href="/api/auth/logout" style={{ marginTop: "auto", padding: "9px 14px", fontSize: 12, color: "var(--text-muted)", textDecoration: "none" }}>
+        Log out
+      </a>
     </div>
   );
 }

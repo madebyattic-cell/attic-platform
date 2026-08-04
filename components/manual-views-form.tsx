@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "./toast-provider";
 
 const CHANNEL_OPTIONS = [
   { value: "wix", label: "Wix" },
@@ -12,18 +13,15 @@ const CHANNEL_OPTIONS = [
 
 export function ManualViewsForm({ productId }: { productId: string }) {
   const router = useRouter();
+  const toast = useToast();
   const [channelKey, setChannelKey] = useState("behance");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [views, setViews] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setError(null);
-    setSuccess(false);
     try {
       const res = await fetch(`/api/products/${productId}/manual-views`, {
         method: "POST",
@@ -32,11 +30,11 @@ export function ManualViewsForm({ productId }: { productId: string }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save");
-      setSuccess(true);
+      toast.show("Views saved");
       setViews("");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      toast.show(err instanceof Error ? err.message : String(err), "error");
     } finally {
       setLoading(false);
     }
@@ -75,8 +73,6 @@ export function ManualViewsForm({ productId }: { productId: string }) {
       >
         {loading ? "Saving…" : "Add views"}
       </button>
-      {success && <span style={{ fontSize: 11, color: "var(--text-success)" }}>Saved</span>}
-      {error && <span style={{ fontSize: 11, color: "#C62828" }}>{error}</span>}
     </form>
   );
 }
