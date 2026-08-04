@@ -130,7 +130,7 @@ async function getTopClients(startDate: string, endDate: string, range: string) 
   const result = await db.execute<{ id: string; name: string | null; email: string | null; order_count: number; gross: string }>(sql`
     select c.id, c.name, c.email, count(o.id)::int as order_count, coalesce(sum(o.gross), 0)::text as gross
     from customers c join orders o on o.customer_id = c.id and o.ordered_at::date between ${startDate} and ${endDate}
-    group by c.id order by sum(o.gross) desc limit 5
+    group by c.id order by sum(o.gross) desc limit 4
   `);
   if (range === "all" || result.rows.length === 0) return result.rows.map((r) => ({ ...r, growth: null as number | null }));
   const prior = priorPeriod(startDate, endDate);
@@ -171,7 +171,7 @@ async function getLatestOrdersWithItems() {
     customer_name: string | null; customer_email: string | null; gross: string;
   }>(sql`
     select o.id as order_id, o.order_number, o.external_order_id, cu.name as customer_name, cu.email as customer_email, o.gross::text as gross
-    from orders o left join customers cu on o.customer_id = cu.id order by o.ordered_at desc limit 5
+    from orders o left join customers cu on o.customer_id = cu.id order by o.ordered_at desc limit 4
   `);
   const ids = orders.rows.map((o) => o.order_id);
   if (ids.length === 0) return [];
@@ -352,7 +352,7 @@ export default async function DashboardPage({
             <DashboardControls currentRange={range} currentLabel={label} hasExplicitMonth={!!sp.ym} availableMonths={availableMonths} />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 6 }}>
             <div style={{ background: UPDATE_BG, borderRadius: 22, padding: 16, height: 130, display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>{HEART}<span style={{ fontSize: 14, color: "#2C2A26" }}>Update</span></div>
               <div style={{ fontSize: 12, color: "#6B6B55" }}>{insight.date}</div>
@@ -381,7 +381,7 @@ export default async function DashboardPage({
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 6 }}>
             <div style={{ gridColumn: "1 / span 3", background: CARD_BG, borderRadius: 22, padding: 16 }}>
               <div style={{ fontSize: 16, color: "#2C2A26", marginBottom: 4 }}>Sales Report</div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
@@ -389,10 +389,10 @@ export default async function DashboardPage({
                 {salesReportGrowth != null && <TrendBadge pct={salesReportGrowth} />}
               </div>
               <div style={{ display: "flex" }}>
-                <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 120, paddingRight: 8, fontSize: 10, color: "#8A867B" }}>
+                <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 90, paddingRight: 8, fontSize: 10, color: "#8A867B" }}>
                   {yAxisSteps.map((s) => <span key={s}>{s === 0 ? "$0" : `$${Math.round((maxBarGross * s) / 100) * 100}`}</span>)}
                 </div>
-                <div style={{ flex: 1, display: "flex", alignItems: "flex-end", gap: 8, height: 120, borderLeft: "1px solid #D8D8C7", paddingLeft: 12 }}>
+                <div style={{ flex: 1, display: "flex", alignItems: "flex-end", gap: 8, height: 90, borderLeft: "1px solid #D8D8C7", paddingLeft: 12 }}>
                   {monthlyBars.map((m) => (
                     <div key={m.month} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                       <div style={{ width: "60%", height: `${Math.max(4, (m.gross / maxBarGross) * 160)}px`, background: tierColor[m.tier], borderRadius: 8 }} title={formatMoney(m.gross)} />
@@ -410,8 +410,8 @@ export default async function DashboardPage({
               ) : (
                 topClients.map((c) => (
                   <Link key={c.id} href={`/customers/${c.id}`} style={{ textDecoration: "none", display: "block" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #D8D8C7" }}>
-                      <div style={{ width: 26, height: 26, borderRadius: "50%", background: UPDATE_BG, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#2C2A26", flexShrink: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid #D8D8C7" }}>
+                      <div style={{ width: 20, height: 20, borderRadius: "50%", background: UPDATE_BG, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#2C2A26", flexShrink: 0 }}>
                         {initials(c.name, c.email)}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>

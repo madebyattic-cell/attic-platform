@@ -26,7 +26,7 @@ export function ExpandableOrderRow({
         onClick={() => setOpen((o) => !o)}
         style={{
           display: "grid", gridTemplateColumns: "1fr 1.4fr 0.9fr 0.8fr", width: "100%",
-          background: "transparent", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 12, textAlign: "left",
+          background: "transparent", border: "none", cursor: "pointer", padding: "5px 0", fontSize: 12, textAlign: "left",
         }}
       >
         <span style={{ color: "#8A867B" }}>{label}</span>
