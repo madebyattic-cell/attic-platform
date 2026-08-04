@@ -321,11 +321,21 @@ export default async function DashboardPage({
   }
 
   let salesReportGrowth: number | null = null;
+  let salesReportDelta: number | null = null;
   if (range !== "all") {
     const prior = priorPeriod(startDate, endDate);
     const priorTotals = await getTotals(prior.startDate, prior.endDate);
     salesReportGrowth = pctChange(Number(totals.gross), Number(priorTotals.gross));
+    salesReportDelta = Number(totals.gross) - Number(priorTotals.gross);
   }
+  const priorPeriodLabel: Record<string, string> = {
+    today: "yesterday",
+    yesterday: "the day before",
+    week: "the previous week",
+    month: "the previous month",
+    year: "the previous year",
+    custom: "the same-length period before it",
+  };
 
   const maxBarGross = Math.max(...monthlyBars.map((m) => m.gross), 1);
   const tierColor = { good: "#A69F4F", normal: "#D1D2BD", bad: "#DE9E4D" };
@@ -357,9 +367,19 @@ export default async function DashboardPage({
             <div className="dash-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14, marginBottom: 12 }}>
               <div style={{ minWidth: 0, background: UPDATE_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>{HEART}<span style={{ fontSize: 12, color: "#2C2A26" }}>Update</span></div>
-                <div style={{ fontSize: 12, color: "#6B6B55" }}>{insight.date}</div>
+                <div style={{ fontSize: 12, color: "#6B6B55" }}>{label}</div>
                 <div style={{ fontSize: 11, color: "#2C2A26", marginTop: 4, flex: 1 }}>
-                  Sales revenue {insight.direction} <span style={{ color: "#3B6D11" }}>{Math.abs(insight.pctChange).toFixed(0)}%</span> in 1 week
+                  {range === "all" ? (
+                    <>{formatMoney(totals.gross)} in total revenue across {totals.order_count.toLocaleString()} orders.</>
+                  ) : salesReportGrowth != null && salesReportDelta != null ? (
+                    <>
+                      Revenue {salesReportGrowth >= 0 ? "increased" : "decreased"}{" "}
+                      <span style={{ color: salesReportGrowth >= 0 ? "#3B6D11" : "#DE9E4D" }}>{Math.abs(salesReportGrowth).toFixed(0)}%</span>
+                      {" "}({salesReportDelta >= 0 ? "+" : "−"}{formatMoney(Math.abs(salesReportDelta))}) vs {priorPeriodLabel[range] ?? "the prior period"}.
+                    </>
+                  ) : (
+                    <>Not enough order history yet to compare this range.</>
+                  )}
                 </div>
               </div>
               <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
