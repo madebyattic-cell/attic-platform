@@ -362,12 +362,12 @@ export default async function DashboardPage({
     }
   }
   const baselinePeriodLabel: Record<string, string> = {
-    today: "your typical day (last 4 days)",
-    yesterday: "your typical day (last 4 days)",
-    week: "your typical week (last 4 weeks)",
-    month: "your typical month (last 4 months)",
-    year: "your typical year (last 4 years)",
-    custom: "your typical period (last 4 windows this length)",
+    today: "4-day average",
+    yesterday: "4-day average",
+    week: "4-week average",
+    month: "4-month average",
+    year: "4-year average",
+    custom: "4-period average",
   };
 
   const maxBarGross = Math.max(...monthlyBars.map((m) => m.gross), 1);
@@ -406,9 +406,9 @@ export default async function DashboardPage({
                     <>{formatMoney(totals.gross)} in total revenue across {totals.order_count.toLocaleString()} orders.</>
                   ) : updateCardGrowth != null && updateCardDelta != null ? (
                     <>
-                      Revenue {updateCardGrowth >= 0 ? "increased" : "decreased"}{" "}
+                      Revenue {updateCardGrowth >= 0 ? "up" : "down"}{" "}
                       <span style={{ color: updateCardGrowth >= 0 ? "#3B6D11" : "#DE9E4D" }}>{Math.abs(updateCardGrowth).toFixed(0)}%</span>
-                      {" "}({updateCardDelta >= 0 ? "+" : "−"}{formatMoney(Math.abs(updateCardDelta))}) vs {baselinePeriodLabel[range] ?? "your typical period"}.
+                      {" "}({updateCardDelta >= 0 ? "+" : "−"}{formatMoney(Math.abs(updateCardDelta))}) vs your {baselinePeriodLabel[range] ?? "4-period average"}.
                     </>
                   ) : (
                     <>Not enough order history yet to compare this range.</>
