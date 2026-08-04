@@ -59,6 +59,18 @@ function priorPeriod(startDate: string, endDate: string) {
   const priorStart = new Date(priorEnd.getTime() - lengthMs);
   return { startDate: ymd(priorStart), endDate: ymd(priorEnd) };
 }
+// Average gross across N periods of the same length as [startDate, endDate],
+// immediately preceding it. Used to smooth the Update card's comparison so a
+// single unusually good/bad adjacent period doesn't spike the number.
+async function getBaselineAverage(startDate: string, endDate: string, periods: number) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const lengthDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  const baselineEnd = new Date(start.getTime() - 86400000);
+  const baselineStart = new Date(baselineEnd.getTime() - (periods * lengthDays - 1) * 86400000);
+  const totals = await getTotals(ymd(baselineStart), ymd(baselineEnd));
+  return { avgGross: Number(totals.gross) / periods, orderCount: totals.order_count };
+}
 function yoyPeriod(startDate: string, endDate: string) {
   const s = new Date(startDate); s.setUTCFullYear(s.getUTCFullYear() - 1);
   const e = new Date(endDate); e.setUTCFullYear(e.getUTCFullYear() - 1);
@@ -337,6 +349,26 @@ export default async function DashboardPage({
     custom: "the same-length period before it",
   };
 
+  // Update card uses a smoothed 4-period trailing average instead of a single
+  // adjacent period, so one unusually good or bad week doesn't spike the number.
+  let updateCardGrowth: number | null = null;
+  let updateCardDelta: number | null = null;
+  if (range !== "all") {
+    const baseline = await getBaselineAverage(startDate, endDate, 4);
+    if (baseline.avgGross > 0) {
+      updateCardGrowth = pctChange(Number(totals.gross), baseline.avgGross);
+      updateCardDelta = Number(totals.gross) - baseline.avgGross;
+    }
+  }
+  const baselinePeriodLabel: Record<string, string> = {
+    today: "your typical day (last 4 days)",
+    yesterday: "your typical day (last 4 days)",
+    week: "your typical week (last 4 weeks)",
+    month: "your typical month (last 4 months)",
+    year: "your typical year (last 4 years)",
+    custom: "your typical period (last 4 windows this length)",
+  };
+
   const maxBarGross = Math.max(...monthlyBars.map((m) => m.gross), 1);
   const tierColor = { good: "#A69F4F", normal: "#D1D2BD", bad: "#DE9E4D" };
   const yAxisSteps = [1, 0.8, 0.6, 0.4, 0.2, 0];
@@ -371,11 +403,11 @@ export default async function DashboardPage({
                 <div style={{ fontSize: 11, color: "#2C2A26", marginTop: 4, flex: 1 }}>
                   {range === "all" ? (
                     <>{formatMoney(totals.gross)} in total revenue across {totals.order_count.toLocaleString()} orders.</>
-                  ) : salesReportGrowth != null && salesReportDelta != null ? (
+                  ) : updateCardGrowth != null && updateCardDelta != null ? (
                     <>
-                      Revenue {salesReportGrowth >= 0 ? "increased" : "decreased"}{" "}
-                      <span style={{ color: salesReportGrowth >= 0 ? "#3B6D11" : "#DE9E4D" }}>{Math.abs(salesReportGrowth).toFixed(0)}%</span>
-                      {" "}({salesReportDelta >= 0 ? "+" : "−"}{formatMoney(Math.abs(salesReportDelta))}) vs {priorPeriodLabel[range] ?? "the prior period"}.
+                      Revenue {updateCardGrowth >= 0 ? "increased" : "decreased"}{" "}
+                      <span style={{ color: updateCardGrowth >= 0 ? "#3B6D11" : "#DE9E4D" }}>{Math.abs(updateCardGrowth).toFixed(0)}%</span>
+                      {" "}({updateCardDelta >= 0 ? "+" : "−"}{formatMoney(Math.abs(updateCardDelta))}) vs {baselinePeriodLabel[range] ?? "your typical period"}.
                     </>
                   ) : (
                     <>Not enough order history yet to compare this range.</>
