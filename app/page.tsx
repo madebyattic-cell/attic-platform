@@ -69,7 +69,7 @@ async function getBaselineAverage(startDate: string, endDate: string, periods: n
   const baselineEnd = new Date(start.getTime() - 86400000);
   const baselineStart = new Date(baselineEnd.getTime() - (periods * lengthDays - 1) * 86400000);
   const totals = await getTotals(ymd(baselineStart), ymd(baselineEnd));
-  return { avgGross: Number(totals.gross) / periods, orderCount: totals.order_count };
+  return { avgNet: Number(totals.net) / periods, orderCount: totals.order_count };
 }
 function yoyPeriod(startDate: string, endDate: string) {
   const s = new Date(startDate); s.setUTCFullYear(s.getUTCFullYear() - 1);
@@ -119,22 +119,22 @@ async function getWeeklyInsight() {
   };
 }
 
-type MonthBar = { month: string; label: string; gross: number; tier: "good" | "normal" | "bad" };
+type MonthBar = { month: string; label: string; net: number; tier: "good" | "normal" | "bad" };
 async function getCalendarYearBars(endDate: string): Promise<MonthBar[]> {
   const year = new Date(endDate).getUTCFullYear();
-  const result = await db.execute<{ month: string; gross: string }>(sql`
-    select to_char(date_trunc('month', ordered_at), 'YYYY-MM') as month, coalesce(sum(gross), 0)::text as gross
+  const result = await db.execute<{ month: string; net: string }>(sql`
+    select to_char(date_trunc('month', ordered_at), 'YYYY-MM') as month, coalesce(sum(net), 0)::text as net
     from orders where date_part('year', ordered_at) = ${year} group by date_trunc('month', ordered_at)
   `);
-  const byMonth = new Map(result.rows.map((r) => [r.month, Number(r.gross)]));
-  const months: { month: string; label: string; gross: number }[] = [];
+  const byMonth = new Map(result.rows.map((r) => [r.month, Number(r.net)]));
+  const months: { month: string; label: string; net: number }[] = [];
   for (let m = 0; m < 12; m++) {
     const key = `${year}-${String(m + 1).padStart(2, "0")}`;
-    months.push({ month: key, label: new Date(Date.UTC(year, m, 1)).toLocaleDateString("en-US", { month: "short" }), gross: byMonth.get(key) ?? 0 });
+    months.push({ month: key, label: new Date(Date.UTC(year, m, 1)).toLocaleDateString("en-US", { month: "short" }), net: byMonth.get(key) ?? 0 });
   }
-  const nonZero = months.filter((m) => m.gross > 0);
-  const avg = nonZero.length > 0 ? nonZero.reduce((s, m) => s + m.gross, 0) / nonZero.length : 0;
-  return months.map((m) => ({ ...m, tier: m.gross === 0 ? "normal" : m.gross >= avg * 1.1 ? "good" : m.gross <= avg * 0.9 ? "bad" : "normal" }));
+  const nonZero = months.filter((m) => m.net > 0);
+  const avg = nonZero.length > 0 ? nonZero.reduce((s, m) => s + m.net, 0) / nonZero.length : 0;
+  return months.map((m) => ({ ...m, tier: m.net === 0 ? "normal" : m.net >= avg * 1.1 ? "good" : m.net <= avg * 0.9 ? "bad" : "normal" }));
 }
 
 async function getTopClients(startDate: string, endDate: string, range: string) {
@@ -338,8 +338,8 @@ export default async function DashboardPage({
   if (range !== "all") {
     const prior = priorPeriod(startDate, endDate);
     const priorTotals = await getTotals(prior.startDate, prior.endDate);
-    salesReportGrowth = pctChange(Number(totals.gross), Number(priorTotals.gross));
-    salesReportDelta = Number(totals.gross) - Number(priorTotals.gross);
+    salesReportGrowth = pctChange(Number(totals.net), Number(priorTotals.net));
+    salesReportDelta = Number(totals.net) - Number(priorTotals.net);
   }
   const priorPeriodLabel: Record<string, string> = {
     today: "yesterday",
@@ -356,9 +356,9 @@ export default async function DashboardPage({
   let updateCardDelta: number | null = null;
   if (range !== "all") {
     const baseline = await getBaselineAverage(startDate, endDate, 4);
-    if (baseline.avgGross > 0) {
-      updateCardGrowth = pctChange(Number(totals.gross), baseline.avgGross);
-      updateCardDelta = Number(totals.gross) - baseline.avgGross;
+    if (baseline.avgNet > 0) {
+      updateCardGrowth = pctChange(Number(totals.net), baseline.avgNet);
+      updateCardDelta = Number(totals.net) - baseline.avgNet;
     }
   }
   const baselinePeriodLabel: Record<string, string> = {
@@ -370,7 +370,7 @@ export default async function DashboardPage({
     custom: "4x avg",
   };
 
-  const maxBarGross = Math.max(...monthlyBars.map((m) => m.gross), 1);
+  const maxBarNet = Math.max(...monthlyBars.map((m) => m.net), 1);
   const tierColor = { good: "#A69F4F", normal: "#D1D2BD", bad: "#DE9E4D" };
   const yAxisSteps = [1, 0.8, 0.6, 0.4, 0.2, 0];
 
@@ -402,7 +402,7 @@ export default async function DashboardPage({
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{HEART}<span style={{ fontSize: 12, color: "#2C2A26" }}>Update</span></div>
                 <div style={{ fontSize: 13, color: "#2C2A26", lineHeight: 1.35 }}>
                   {range === "all" ? (
-                    <>{formatMoney(totals.gross)} in total revenue across {totals.order_count.toLocaleString()} orders.</>
+                    <>{formatMoney(totals.net)} net across {totals.order_count.toLocaleString()} orders.</>
                   ) : updateCardGrowth != null && updateCardDelta != null ? (
                     <>
                       Revenue {updateCardGrowth >= 0 ? "up" : "down"}{" "}
@@ -442,17 +442,17 @@ export default async function DashboardPage({
               <div style={{ minWidth: 0, gridColumn: "1 / span 3", background: CARD_BG, borderRadius: 22, padding: 22 }}>
                 <div style={{ fontSize: 13, color: "#2C2A26", marginBottom: 4 }}>Sales Report</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 20, color: "#2C2A26" }}>{formatMoney(totals.gross)}</span>
+                  <span style={{ fontSize: 20, color: "#2C2A26" }}>{formatMoney(totals.net)}</span>
                   {salesReportGrowth != null && <TrendBadge pct={salesReportGrowth} />}
                 </div>
                 <div style={{ display: "flex" }}>
                   <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 200, paddingRight: 8, fontSize: 10, color: "#8A867B", flexShrink: 0 }}>
-                    {yAxisSteps.map((s) => <span key={s}>{s === 0 ? "$0" : `$${Math.round((maxBarGross * s) / 100) * 100}`}</span>)}
+                    {yAxisSteps.map((s) => <span key={s}>{s === 0 ? "$0" : `$${Math.round((maxBarNet * s) / 100) * 100}`}</span>)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "flex-end", gap: 8, height: 200, borderLeft: "1px solid #D8D8C7", paddingLeft: 12 }}>
                     {monthlyBars.map((m) => (
                       <div key={m.month} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                        <div style={{ width: "60%", height: `${Math.max(4, (m.gross / maxBarGross) * 190)}px`, background: tierColor[m.tier], borderRadius: 8 }} title={formatMoney(m.gross)} />
+                        <div style={{ width: "60%", height: `${Math.max(4, (m.net / maxBarNet) * 190)}px`, background: tierColor[m.tier], borderRadius: 8 }} title={formatMoney(m.net)} />
                         <span style={{ fontSize: 10, color: "#8A867B" }}>{m.label}</span>
                       </div>
                     ))}
