@@ -344,7 +344,7 @@ export default async function DashboardPage({
   return (
     <div className="dash-frame" style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#F2F3EE" }}>
       <Sidebar />
-      <div className="dash-content-row" style={{ flex: 1, minWidth: 0, padding: "18px 32px", display: "flex", gap: 24, height: "100%", overflow: "hidden" }}>
+      <div className="dash-content-row" style={{ flex: 1, minWidth: 0, padding: "24px 32px", display: "flex", gap: 24, height: "100%", overflow: "hidden" }}>
           <div className="dash-main-col" style={{ flex: 1, minWidth: 0, height: "100%", overflowY: "auto", paddingRight: 4 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, gap: 16, flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
@@ -355,24 +355,24 @@ export default async function DashboardPage({
             </div>
 
             <div className="dash-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14, marginBottom: 12 }}>
-              <div style={{ minWidth: 0, background: UPDATE_BG, borderRadius: 22, padding: 18, height: 132, display: "flex", flexDirection: "column" }}>
+              <div style={{ minWidth: 0, background: UPDATE_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>{HEART}<span style={{ fontSize: 12, color: "#2C2A26" }}>Update</span></div>
                 <div style={{ fontSize: 12, color: "#6B6B55" }}>{insight.date}</div>
                 <div style={{ fontSize: 11, color: "#2C2A26", marginTop: 4, flex: 1 }}>
                   Sales revenue {insight.direction} <span style={{ color: "#3B6D11" }}>{Math.abs(insight.pctChange).toFixed(0)}%</span> in 1 week
                 </div>
               </div>
-              <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 18, height: 132, display: "flex", flexDirection: "column" }}>
+              <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>{COIN}<span style={{ fontSize: 12, color: "#2C2A26" }}>Net Income</span></div>
                 <div style={{ fontSize: 26, color: "#2C2A26", marginTop: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatMoney(totals.net)}</div>
                 {yoy && <div style={{ fontSize: 11, color: yoy.net >= 0 ? "#3B6D11" : "#DE9E4D" }}>↗ {yoy.net >= 0 ? "+" : ""}{yoy.net.toFixed(0)}% from last year</div>}
               </div>
-              <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 18, height: 132, display: "flex", flexDirection: "column" }}>
+              <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>{SMILEY}<span style={{ fontSize: 12, color: "#2C2A26" }}>Customers</span></div>
                 <div style={{ fontSize: 26, color: "#2C2A26", marginTop: 8 }}>{customerCount.toLocaleString()}</div>
                 {yoy && <div style={{ fontSize: 11, color: yoy.customers >= 0 ? "#3B6D11" : "#DE9E4D" }}>↗ {yoy.customers >= 0 ? "+" : ""}{yoy.customers.toFixed(0)}% from last year</div>}
               </div>
-              <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 18, height: 132, display: "flex", flexDirection: "column" }}>
+              <div style={{ minWidth: 0, background: CARD_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>{TARGET}<span style={{ fontSize: 12, color: "#2C2A26" }}>Conversion</span></div>
                 <div style={{ fontSize: 26, color: "#2C2A26", marginTop: 8 }}>{conversion.reliable ? `${conversion.rate!.toFixed(1)}%` : "—"}</div>
                 {yoy && yoy.conversion != null ? (
@@ -384,20 +384,20 @@ export default async function DashboardPage({
             </div>
 
             <div className="dash-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14, marginBottom: 12 }}>
-              <div style={{ minWidth: 0, gridColumn: "1 / span 3", background: CARD_BG, borderRadius: 22, padding: 18 }}>
+              <div style={{ minWidth: 0, gridColumn: "1 / span 3", background: CARD_BG, borderRadius: 22, padding: 22 }}>
                 <div style={{ fontSize: 13, color: "#2C2A26", marginBottom: 4 }}>Sales Report</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 20, color: "#2C2A26" }}>{formatMoney(totals.gross)}</span>
                   {salesReportGrowth != null && <TrendBadge pct={salesReportGrowth} />}
                 </div>
                 <div style={{ display: "flex" }}>
-                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 160, paddingRight: 8, fontSize: 10, color: "#8A867B", flexShrink: 0 }}>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: 200, paddingRight: 8, fontSize: 10, color: "#8A867B", flexShrink: 0 }}>
                     {yAxisSteps.map((s) => <span key={s}>{s === 0 ? "$0" : `$${Math.round((maxBarGross * s) / 100) * 100}`}</span>)}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "flex-end", gap: 8, height: 160, borderLeft: "1px solid #D8D8C7", paddingLeft: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "flex-end", gap: 8, height: 200, borderLeft: "1px solid #D8D8C7", paddingLeft: 12 }}>
                     {monthlyBars.map((m) => (
                       <div key={m.month} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                        <div style={{ width: "60%", height: `${Math.max(4, (m.gross / maxBarGross) * 150)}px`, background: tierColor[m.tier], borderRadius: 8 }} title={formatMoney(m.gross)} />
+                        <div style={{ width: "60%", height: `${Math.max(4, (m.gross / maxBarGross) * 190)}px`, background: tierColor[m.tier], borderRadius: 8 }} title={formatMoney(m.gross)} />
                         <span style={{ fontSize: 10, color: "#8A867B" }}>{m.label}</span>
                       </div>
                     ))}
