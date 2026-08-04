@@ -362,12 +362,12 @@ export default async function DashboardPage({
     }
   }
   const baselinePeriodLabel: Record<string, string> = {
-    today: "4-day average",
-    yesterday: "4-day average",
-    week: "4-week average",
-    month: "4-month average",
-    year: "4-year average",
-    custom: "4-period average",
+    today: "4d avg",
+    yesterday: "4d avg",
+    week: "4wk avg",
+    month: "4mo avg",
+    year: "4yr avg",
+    custom: "4x avg",
   };
 
   const maxBarGross = Math.max(...monthlyBars.map((m) => m.gross), 1);
@@ -400,18 +400,23 @@ export default async function DashboardPage({
             <div className="dash-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14, marginBottom: 12 }}>
               <div style={{ minWidth: 0, background: UPDATE_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{HEART}<span style={{ fontSize: 12, color: "#2C2A26" }}>Update</span></div>
-                <div style={{ fontSize: 11, color: "#6B6B55", marginTop: 14 }}>{label}</div>
-                <div style={{ fontSize: 13, color: "#2C2A26", marginTop: 6, lineHeight: 1.35, flex: 1 }}>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
                   {range === "all" ? (
-                    <>{formatMoney(totals.gross)} in total revenue across {totals.order_count.toLocaleString()} orders.</>
+                    <>
+                      <div style={{ fontSize: 22, color: "#2C2A26", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatMoney(totals.gross)}</div>
+                      <div style={{ fontSize: 11, color: "#6B6B55", marginTop: 2 }}>{totals.order_count.toLocaleString()} orders total</div>
+                    </>
                   ) : updateCardGrowth != null && updateCardDelta != null ? (
                     <>
-                      Revenue {updateCardGrowth >= 0 ? "up" : "down"}{" "}
-                      <span style={{ color: updateCardGrowth >= 0 ? "#3B6D11" : "#DE9E4D" }}>{Math.abs(updateCardGrowth).toFixed(0)}%</span>
-                      {" "}({updateCardDelta >= 0 ? "+" : "−"}{formatMoney(Math.abs(updateCardDelta))}) vs your {baselinePeriodLabel[range] ?? "4-period average"}.
+                      <div style={{ fontSize: 22, color: updateCardGrowth >= 0 ? "#3B6D11" : "#DE9E4D" }}>
+                        {updateCardGrowth >= 0 ? "+" : "−"}{Math.abs(updateCardGrowth).toFixed(0)}%
+                      </div>
+                      <div style={{ fontSize: 11, color: "#6B6B55", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {updateCardDelta >= 0 ? "+" : "−"}{formatMoney(Math.abs(updateCardDelta))} vs {baselinePeriodLabel[range] ?? "4x avg"}
+                      </div>
                     </>
                   ) : (
-                    <>Not enough order history yet to compare this range.</>
+                    <div style={{ fontSize: 12, color: "#6B6B55" }}>Not enough history to compare this range.</div>
                   )}
                 </div>
                 <Link href="/analytics" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#2C2A26", textDecoration: "none" }}>
