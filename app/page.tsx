@@ -349,7 +349,7 @@ export default async function DashboardPage({
               <h1 style={{ fontFamily: "var(--font-voice)", fontSize: 30, color: "#2C2A26", margin: 0 }}>Dashboard</h1>
               <p style={{ fontSize: 13, color: "#8A867B", marginTop: 4 }}>Showing {label} across all four channels.</p>
             </div>
-            <DashboardControls currentRange={range} currentLabel={label} availableMonths={availableMonths} />
+            <DashboardControls currentRange={range} currentLabel={label} hasExplicitMonth={!!sp.ym} availableMonths={availableMonths} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 10 }}>

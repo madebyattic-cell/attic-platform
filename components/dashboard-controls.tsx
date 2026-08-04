@@ -27,10 +27,12 @@ function useClickOutside(onOutside: () => void) {
 export function DashboardControls({
   currentRange,
   currentLabel,
+  hasExplicitMonth,
   availableMonths,
 }: {
   currentRange: string;
   currentLabel: string;
+  hasExplicitMonth: boolean;
   availableMonths: { ym: string; label: string }[];
 }) {
   const router = useRouter();
@@ -44,9 +46,17 @@ export function DashboardControls({
   const monthRef = useClickOutside(() => setMonthOpen(false));
   const customRef = useClickOutside(() => setCustomOpen(false));
 
-  const isPresetActive = ["all", "year", "week", "yesterday", "today", "month"].includes(currentRange) && currentRange !== "custom";
-  const activePresetLabel =
-    currentRange === "all" ? "All Time" : PRESETS.find((p) => p.value === currentRange)?.label ?? "All Time";
+  // A "preset" is active when the range is one of the fixed presets, or
+  // "This Month" was picked from the presets list (range=month with no
+  // specific month chosen). A specific month picked from the Select Month
+  // list takes over the Select Month button instead.
+  const isPresetActive = ["all", "year", "week", "yesterday", "today"].includes(currentRange) || (currentRange === "month" && !hasExplicitMonth);
+  const isMonthActive = currentRange === "month" && hasExplicitMonth;
+  const isCustomActive = currentRange === "custom";
+
+  const presetButtonLabel = isPresetActive ? currentLabel : "All Time";
+  const monthButtonLabel = isMonthActive ? currentLabel : "Select Month";
+  const customButtonLabel = isCustomActive ? currentLabel : "Custom Range";
 
   function go(params: Record<string, string>) {
     const qs = new URLSearchParams(params).toString();
@@ -69,7 +79,7 @@ export function DashboardControls({
             display: "flex", alignItems: "center", gap: 6,
           }}
         >
-          {isPresetActive ? activePresetLabel : "All Time"} <span style={{ fontSize: 10 }}>▾</span>
+          {isPresetActive ? presetButtonLabel : "All Time"} <span style={{ fontSize: 10 }}>▾</span>
         </button>
         {presetOpen && (
           <div style={{ position: "absolute", top: "110%", left: 0, background: "#FBFCF6", border: "1px solid #D8D8C7", borderRadius: 12, padding: 6, minWidth: 150, zIndex: 20, boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
@@ -93,12 +103,12 @@ export function DashboardControls({
           onClick={() => setMonthOpen((o) => !o)}
           style={{
             padding: "7px 16px", borderRadius: 12, fontSize: 13, cursor: "pointer",
-            background: currentRange === "month" ? "#E6E7B7" : "transparent",
-            border: currentRange === "month" ? "none" : "1px solid #D8D8C7", color: "#2C2A26",
+            background: isMonthActive ? "#E6E7B7" : "transparent",
+            border: isMonthActive ? "none" : "1px solid #D8D8C7", color: "#2C2A26",
             display: "flex", alignItems: "center", gap: 6,
           }}
         >
-          Select Month <span style={{ fontSize: 10 }}>▾</span>
+          {monthButtonLabel} <span style={{ fontSize: 10 }}>▾</span>
         </button>
         {monthOpen && (
           <div style={{ position: "absolute", top: "110%", left: 0, background: "#FBFCF6", border: "1px solid #D8D8C7", borderRadius: 12, padding: 6, minWidth: 160, maxHeight: 280, overflowY: "auto", zIndex: 20, boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
@@ -126,10 +136,11 @@ export function DashboardControls({
           onClick={() => setCustomOpen((o) => !o)}
           style={{
             padding: "7px 16px", borderRadius: 12, fontSize: 13, cursor: "pointer",
-            background: "transparent", border: "1px solid #D8D8C7", color: "#2C2A26",
+            background: isCustomActive ? "#E6E7B7" : "transparent",
+            border: isCustomActive ? "none" : "1px solid #D8D8C7", color: "#2C2A26",
           }}
         >
-          Custom Range
+          {customButtonLabel}
         </button>
         {customOpen && (
           <div style={{ position: "absolute", top: "110%", right: 0, background: "#FBFCF6", border: "1px solid #D8D8C7", borderRadius: 12, padding: 14, zIndex: 20, boxShadow: "0 4px 16px rgba(0,0,0,0.08)", display: "flex", flexDirection: "column", gap: 8, minWidth: 220 }}>
