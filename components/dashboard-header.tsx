@@ -13,7 +13,7 @@ export function DashboardHeader({ failedSyncCount }: { failedSyncCount: number }
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
       <form onSubmit={handleSubmit} style={{ flex: 1, maxWidth: 420 }}>
         <div style={{ position: "relative" }}>
           <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#8A867B" }}>
