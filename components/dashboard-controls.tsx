@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type RefObject, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 
 const PRESETS = [
@@ -38,11 +38,11 @@ function useListboxKeyboard({
   setOpen: (v: boolean) => void;
   optionCount: number;
   onSelect: (index: number) => void;
-  triggerRef: React.RefObject<HTMLButtonElement>;
+  triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
 
-  function onTriggerKeyDown(e: React.KeyboardEvent) {
+  function onTriggerKeyDown(e: KeyboardEvent) {
     if ((e.key === "Enter" || e.key === " " || e.key === "ArrowDown") && !open) {
       e.preventDefault();
       setOpen(true);
@@ -50,7 +50,7 @@ function useListboxKeyboard({
     }
   }
 
-  function onListKeyDown(e: React.KeyboardEvent) {
+  function onListKeyDown(e: KeyboardEvent) {
     if (e.key === "Escape") {
       e.preventDefault();
       setOpen(false);
