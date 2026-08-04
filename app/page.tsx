@@ -553,7 +553,6 @@ export default async function DashboardPage({
             </div>
           </div>
         </div>
-      </div>
 
       <style>{`
         @media (max-width: 1300px) {
