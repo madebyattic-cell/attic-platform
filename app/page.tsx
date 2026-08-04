@@ -400,23 +400,17 @@ export default async function DashboardPage({
             <div className="dash-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14, marginBottom: 12 }}>
               <div style={{ minWidth: 0, background: UPDATE_BG, borderRadius: 22, padding: 20, height: 150, display: "flex", flexDirection: "column" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{HEART}<span style={{ fontSize: 12, color: "#2C2A26" }}>Update</span></div>
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                <div style={{ fontSize: 13, color: "#2C2A26", marginTop: 12, lineHeight: 1.35, flex: 1 }}>
                   {range === "all" ? (
-                    <>
-                      <div style={{ fontSize: 22, color: "#2C2A26", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatMoney(totals.gross)}</div>
-                      <div style={{ fontSize: 11, color: "#6B6B55", marginTop: 2 }}>{totals.order_count.toLocaleString()} orders total</div>
-                    </>
+                    <>{formatMoney(totals.gross)} in total revenue across {totals.order_count.toLocaleString()} orders.</>
                   ) : updateCardGrowth != null && updateCardDelta != null ? (
                     <>
-                      <div style={{ fontSize: 22, color: updateCardGrowth >= 0 ? "#3B6D11" : "#DE9E4D" }}>
-                        {updateCardGrowth >= 0 ? "+" : "−"}{Math.abs(updateCardGrowth).toFixed(0)}%
-                      </div>
-                      <div style={{ fontSize: 11, color: "#6B6B55", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {updateCardDelta >= 0 ? "+" : "−"}{formatMoney(Math.abs(updateCardDelta))} vs {baselinePeriodLabel[range] ?? "4x avg"}
-                      </div>
+                      Revenue {updateCardGrowth >= 0 ? "up" : "down"}{" "}
+                      <span style={{ color: updateCardGrowth >= 0 ? "#3B6D11" : "#DE9E4D" }}>{Math.abs(updateCardGrowth).toFixed(0)}%</span>
+                      {" "}({updateCardDelta >= 0 ? "+" : "−"}{formatMoney(Math.abs(updateCardDelta))}) vs {baselinePeriodLabel[range] ?? "4x avg"}.
                     </>
                   ) : (
-                    <div style={{ fontSize: 12, color: "#6B6B55" }}>Not enough history to compare this range.</div>
+                    <>Not enough history to compare this range.</>
                   )}
                 </div>
                 <Link href="/analytics" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#2C2A26", textDecoration: "none" }}>
